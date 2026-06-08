@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# Sabotetris
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> The pieces are fighting back.
 
-Currently, two official plugins are available:
+A chaotic twist on classic Tetris built with [Excalibur.js](https://excaliburjs.com). Stack blocks, clear lines, and survive the sabotage.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Overview
 
-## React Compiler
+Sabotetris plays like standard Tetris, but a **Chaos Engine** periodically triggers random effects that disrupt your flow:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Input lock** — controls freeze for a few seconds  
+- **Reverse controls** — left becomes right, right becomes left  
+- **Panic drop** — the current piece slams down immediately
 
-## Expanding the ESLint configuration
+As your level increases, the pieces fall faster and chaos strikes more often.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Controls
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Key | Action |
+|-----|--------|
+| ← → | Move piece |
+| ↑ | Rotate piece |
+| ↓ | Hard drop |
+| Escape / P | Pause / Resume |
+| Enter | Save score (Game Over) |
+| Escape | Exit to menu (Game Over) |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Tech Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Runtime** — [Excalibur.js](https://excaliburjs.com) v0.29 (TypeScript game engine)
+- **UI Shell** — React 19 + Vite
+- **Persistence** — localStorage for score rankings
+
+## Project Structure
+
+```
+src/
+├── engine/
+│   ├── actors/       # Board and SidePanel renderers
+│   ├── scenes/       # Menu, Game, GameOver, Ranking
+│   ├── services/     # ChaosEngine, ScoreService, LevelService, RankingService
+│   └── Game.ts       # Engine bootstrap and scene registration
+├── data/             # Tetromino definitions
+├── types/            # Shared TypeScript types and constants
+├── ui/               # React entry point
+└── utils/            # Grid helpers and rotation
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Getting Started
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
+
+Open the URL printed by Vite (default `http://localhost:5173`).
