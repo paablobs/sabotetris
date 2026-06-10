@@ -20,6 +20,8 @@ Each level has a target score. Hit it and you'll be offered the choice to advanc
 
 ## Controls
 
+### Desktop
+
 | Key | Action |
 |-----|--------|
 | ← → | Move piece |
@@ -29,6 +31,20 @@ Each level has a target score. Hit it and you'll be offered the choice to advanc
 | Escape / P | Pause / Resume |
 | Enter | Save score (Game Over) |
 | Escape | Exit to menu (Game Over) |
+
+### Mobile
+
+Detected automatically on touch devices with a coarse pointer. Keyboard and mouse are unaffected on desktop.
+
+| Gesture | Action |
+|---------|--------|
+| Swipe left | Move piece left |
+| Swipe right | Move piece right |
+| Swipe down | Hard drop (slam down) |
+| Tap on the playfield | Rotate piece |
+| Two-finger tap | Pause / Resume |
+
+After pausing, the on-screen CONTINUE / RESET LEVEL / HOME buttons (which work for both mouse and touch) handle the rest.
 
 ## Tech Stack
 

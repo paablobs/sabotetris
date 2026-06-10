@@ -16,6 +16,7 @@ import {
 import { BoardActor } from '../actors/Board';
 import { SidePanel } from '../actors/SidePanel';
 import { admin } from '../services/AdminService';
+import { isMobile, TouchInput } from '../services/MobileService';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -26,6 +27,7 @@ export class GameScene extends ex.Scene {
   private sidePanel!: SidePanel;
   private backgroundActor!: ex.Actor;
   private backgroundSetColor: (c: string) => void = () => {};
+  private touchInput: TouchInput | null = null;
 
   private scoreService = new ScoreService();
   private levelService = new LevelService();
@@ -59,7 +61,7 @@ export class GameScene extends ex.Scene {
     this.grid = createEmptyGrid();
   }
 
-  onInitialize(_engine: ex.Engine): void {
+  onInitialize(engine: ex.Engine): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     const bg = this.createBackgroundActor();
     this.backgroundActor = bg.actor;
@@ -82,6 +84,29 @@ export class GameScene extends ex.Scene {
     this.levelCompleteOverlayActor.graphics.visible = false;
     this.levelCompleteOverlayActor.z = 100;
     this.add(this.levelCompleteOverlayActor);
+
+    if (isMobile) {
+      const canvas = engine.canvas;
+      this.touchInput = new TouchInput(canvas, {
+        moveLeft: () => {
+          if (this.ignoreInput) return;
+          this.movePieceWithChecks(0, this.reverseInput ? 1 : -1);
+        },
+        moveRight: () => {
+          if (this.ignoreInput) return;
+          this.movePieceWithChecks(0, this.reverseInput ? -1 : 1);
+        },
+        rotate: () => {
+          if (this.ignoreInput) return;
+          this.rotatePieceWithChecks();
+        },
+        hardDrop: () => {
+          if (this.ignoreInput) return;
+          this.hardDrop();
+        },
+        pause: () => this.togglePauseFromTouch(),
+      });
+    }
 
     this.initChaosEngine();
   }
@@ -122,11 +147,13 @@ export class GameScene extends ex.Scene {
     if (this.pauseOverlayActor) {
       this.pauseOverlayActor.graphics.visible = false;
     }
+    this.touchInput?.enable();
     this.resetGame();
   }
 
   onDeactivate(): void {
     this.currentPiece = null;
+    this.touchInput?.disable();
   }
 
   private resetGame(): void {
@@ -160,7 +187,12 @@ export class GameScene extends ex.Scene {
   }
 
   onPreUpdate(_engine: ex.Engine, delta: number): void {
-    if (this.gameOver) return;
+    if (this.gameOver) {
+      this.touchInput?.setBlocked(true);
+      return;
+    }
+
+    this.touchInput?.setBlocked(this.paused || this.levelCompleteShown);
 
     if (!this.levelCompleteShown) {
       this.handlePauseToggle(_engine);
@@ -249,6 +281,12 @@ export class GameScene extends ex.Scene {
       this.paused = !this.paused;
       this.pauseOverlayActor.graphics.visible = this.paused;
     }
+  }
+
+  private togglePauseFromTouch(): void {
+    if (this.gameOver || this.levelCompleteShown) return;
+    this.paused = !this.paused;
+    this.pauseOverlayActor.graphics.visible = this.paused;
   }
 
   private createLevelCompleteOverlay(): ex.Actor {
