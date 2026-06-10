@@ -9,9 +9,11 @@ import type { TetrominoType } from '../../types';
  */
 export class SidePanel extends ex.Actor {
   private nextPieceType: TetrominoType = 'I';
+  private nextPieceHidden = false;
   private score = 0;
   private level = 1;
   private lines = 0;
+  private maxScore = 0;
   private chaosEffectName = '';
   private chaosTimer = 0;
 
@@ -20,7 +22,7 @@ export class SidePanel extends ex.Actor {
       x: PANEL_X,
       y: BOARD_Y,
       width: 140,
-      height: 360,
+      height: 400,
       anchor: ex.Vector.Zero,
     });
   }
@@ -29,7 +31,7 @@ export class SidePanel extends ex.Actor {
     const graphic = new ex.Canvas({
       cache: false,
       width: 140,
-      height: 360,
+      height: 400,
       draw: (ctx) => this.draw(ctx),
     });
     this.graphics.use(graphic);
@@ -37,6 +39,10 @@ export class SidePanel extends ex.Actor {
 
   setNextPiece(type: TetrominoType): void {
     this.nextPieceType = type;
+  }
+
+  setNextPieceHidden(hidden: boolean): void {
+    this.nextPieceHidden = hidden;
   }
 
   setScore(score: number): void {
@@ -49,6 +55,10 @@ export class SidePanel extends ex.Actor {
 
   setLines(lines: number): void {
     this.lines = lines;
+  }
+
+  setMaxScore(maxScore: number): void {
+    this.maxScore = maxScore;
   }
 
   setChaosEffect(name: string, duration: number): void {
@@ -68,7 +78,7 @@ export class SidePanel extends ex.Actor {
   private draw(ctx: CanvasRenderingContext2D): void {
     this.drawNextPiece(ctx, 0, 0);
     this.drawInfo(ctx, 0, 130);
-    this.drawChaosEffect(ctx, 0, 320);
+    this.drawChaosEffect(ctx, 0, 360);
   }
 
   private drawNextPiece(ctx: CanvasRenderingContext2D, x: number, y: number): void {
@@ -82,6 +92,17 @@ export class SidePanel extends ex.Actor {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.fillText('NEXT', x + 8, y + 16);
+
+    if (this.nextPieceHidden) {
+      ctx.fillStyle = '#445566';
+      ctx.font = '48px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', x + 70, y + 70);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      return;
+    }
 
     const def = TETROMINOES[this.nextPieceType];
     const previewSize = 16;
@@ -103,16 +124,17 @@ export class SidePanel extends ex.Actor {
 
   private drawInfo(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     ctx.fillStyle = '#16213e';
-    ctx.fillRect(x, y, 140, 180);
+    ctx.fillRect(x, y, 140, 220);
     ctx.strokeStyle = '#2a3a5c';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, 140, 180);
+    ctx.strokeRect(x, y, 140, 220);
 
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
 
     const labelColor = '#667788';
     const valueColor = '#ddeeff';
+    const reachedColor = '#88cc88';
     let drawY = y + 24;
 
     ctx.fillStyle = labelColor;
@@ -122,7 +144,16 @@ export class SidePanel extends ex.Actor {
     ctx.font = '22px monospace';
     ctx.fillText(this.score.toString(), x + 8, drawY);
 
-    drawY += 34;
+    drawY += 30;
+    ctx.font = '12px monospace';
+    ctx.fillStyle = labelColor;
+    ctx.fillText('TARGET', x + 8, drawY);
+    drawY += 16;
+    ctx.fillStyle = this.score >= this.maxScore && this.maxScore > 0 ? reachedColor : valueColor;
+    ctx.font = '16px monospace';
+    ctx.fillText(this.maxScore.toString(), x + 8, drawY);
+
+    drawY += 30;
     ctx.font = '12px monospace';
     ctx.fillStyle = labelColor;
     ctx.fillText('LEVEL', x + 8, drawY);
@@ -131,7 +162,7 @@ export class SidePanel extends ex.Actor {
     ctx.font = '22px monospace';
     ctx.fillText(this.level.toString(), x + 8, drawY);
 
-    drawY += 34;
+    drawY += 30;
     ctx.font = '12px monospace';
     ctx.fillStyle = labelColor;
     ctx.fillText('LINES', x + 8, drawY);

@@ -28,8 +28,18 @@ export class LevelService {
     return this.getLevelDef().scoreMultiplier;
   }
 
+  getMaxScore(): number {
+    return this.getLevelDef().maxScore;
+  }
+
   getBackgroundColor(): string {
     return this.getLevelDef().backgroundColor;
+  }
+
+  advanceLevel(): boolean {
+    if (this.level >= MAX_LEVEL) return false;
+    this.level++;
+    return true;
   }
 
   /**

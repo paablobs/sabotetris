@@ -3,6 +3,7 @@ import { COLS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import type { Grid, PieceState, TetrominoType, GameState } from '../../types';
 import { TETROMINOES, PIECE_TYPES } from '../../data/tetrominoes';
 import { LevelService } from '../services/LevelService';
+import { MAX_LEVEL } from '../../data/levels';
 import { ScoreService } from '../services/ScoreService';
 import { ChaosEngine } from '../services/ChaosEngine';
 import {
@@ -32,15 +33,22 @@ export class GameScene extends ex.Scene {
   private gameOver = false;
   private paused = false;
 
+  private highestReachedLevel = 1;
+  private levelCompleteShown = false;
+  private levelStartScore = 0;
+
   private ignoreInput = false;
   private reverseInput = false;
   private ignoreTimer = 0;
   private reverseTimer = 0;
+  private nextPieceHidden = false;
+  private nextPieceHiddenTimer = 0;
 
   private readonly KEY_REPEAT = 140;
   private keyRepeatDelay = this.KEY_REPEAT;
 
   private pauseOverlayActor!: ex.Actor;
+  private levelCompleteOverlayActor!: ex.Actor;
 
   constructor() {
     super();
@@ -58,6 +66,10 @@ export class GameScene extends ex.Scene {
     this.pauseOverlayActor = this.createPauseOverlay();
     this.pauseOverlayActor.graphics.visible = false;
     this.add(this.pauseOverlayActor);
+
+    this.levelCompleteOverlayActor = this.createLevelCompleteOverlay();
+    this.levelCompleteOverlayActor.graphics.visible = false;
+    this.add(this.levelCompleteOverlayActor);
 
     this.initChaosEngine();
   }
@@ -81,12 +93,18 @@ export class GameScene extends ex.Scene {
     this.reverseInput = false;
     this.ignoreTimer = 0;
     this.reverseTimer = 0;
+    this.nextPieceHidden = false;
+    this.nextPieceHiddenTimer = 0;
     this.dropTimer = 0;
     this.chaosAccum = 0;
     this.keyRepeatDelay = this.KEY_REPEAT;
+    this.highestReachedLevel = 1;
+    this.levelCompleteShown = false;
+    this.levelCompleteOverlayActor.graphics.visible = false;
 
     this.scoreService.reset();
     this.levelService.reset();
+    this.levelStartScore = 0;
     this.chaosEngine.setLevel(this.levelService.getLevel());
 
     this.nextPieceType = this.randomPieceType();
@@ -99,9 +117,11 @@ export class GameScene extends ex.Scene {
   onPreUpdate(_engine: ex.Engine, delta: number): void {
     if (this.gameOver) return;
 
-    this.handlePauseToggle(_engine);
+    if (!this.levelCompleteShown) {
+      this.handlePauseToggle(_engine);
+    }
 
-    if (this.paused) return;
+    if (this.paused || this.levelCompleteShown) return;
 
     this.updateTimedEffects(delta);
 
@@ -139,6 +159,14 @@ export class GameScene extends ex.Scene {
       panicDrop: () => this.panicDrop(),
       setIgnoreInput: (d: number) => { this.ignoreInput = true; this.ignoreTimer = d; },
       setReverseInput: (d: number) => { this.reverseInput = true; this.reverseTimer = d; },
+      lockPhantomCell: () => this.lockPhantomCell(),
+      setNextPieceHidden: (d: number) => {
+        this.nextPieceHidden = true;
+        this.nextPieceHiddenTimer = d;
+        this.sidePanel.setNextPieceHidden(true);
+      },
+      forceNextPieceType: (t: TetrominoType) => { this.nextPieceType = t; },
+      shiftBoardUp: () => this.shiftBoardUp(),
     };
     this.chaosEngine = new ChaosEngine(this.levelService.getLevel(), gameState);
   }
@@ -159,6 +187,14 @@ export class GameScene extends ex.Scene {
         this.sidePanel.setChaosEffect('', 0);
       }
     }
+
+    if (this.nextPieceHidden) {
+      this.nextPieceHiddenTimer -= delta;
+      if (this.nextPieceHiddenTimer <= 0) {
+        this.nextPieceHidden = false;
+        this.sidePanel.setNextPieceHidden(false);
+      }
+    }
   }
 
   private handlePauseToggle(engine: ex.Engine): void {
@@ -166,6 +202,151 @@ export class GameScene extends ex.Scene {
     if (kb.wasPressed(ex.Input.Keys.Escape) || kb.wasPressed(ex.Input.Keys.P)) {
       this.paused = !this.paused;
       this.pauseOverlayActor.graphics.visible = this.paused;
+    }
+  }
+
+  private createLevelCompleteOverlay(): ex.Actor {
+    const overlay = new ex.Actor({
+      x: 0,
+      y: 0,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      anchor: ex.Vector.Zero,
+    });
+
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      draw: (ctx) => {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        ctx.fillStyle = '#88cc88';
+        ctx.font = '44px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LEVEL COMPLETE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 130);
+
+        ctx.fillStyle = '#ddeeff';
+        ctx.font = '20px monospace';
+        ctx.fillText(
+          `You beat Level ${this.levelService.getLevel()}`,
+          CANVAS_WIDTH / 2,
+          CANVAS_HEIGHT / 2 - 80
+        );
+
+        const bw = 240, bh = 50;
+        const bx = (CANVAS_WIDTH - bw) / 2;
+        const by1 = CANVAS_HEIGHT / 2 - 20;
+        const by2 = CANVAS_HEIGHT / 2 + 50;
+
+        ctx.fillStyle = '#1a3a2a';
+        ctx.fillRect(bx, by1, bw, bh);
+        ctx.strokeStyle = '#5a9a6a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by1, bw, bh);
+        ctx.fillStyle = '#ddeeff';
+        ctx.font = '20px monospace';
+        ctx.fillText('ADVANCE', CANVAS_WIDTH / 2, by1 + bh / 2 + 2);
+
+        ctx.fillStyle = '#1a2a3a';
+        ctx.fillRect(bx, by2, bw, bh);
+        ctx.strokeStyle = '#4a6a8a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by2, bw, bh);
+        ctx.fillStyle = '#ddeeff';
+        ctx.fillText('STAY', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
+      },
+    });
+    overlay.graphics.use(graphic);
+
+    overlay.on('pointerup', (evt) => {
+      if (!this.levelCompleteShown) return;
+      const wp = evt.worldPos;
+      const bw = 240, bh = 50;
+      const bx = (CANVAS_WIDTH - bw) / 2;
+      const by1 = CANVAS_HEIGHT / 2 - 20;
+      const by2 = CANVAS_HEIGHT / 2 + 50;
+
+      if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by1 && wp.y <= by1 + bh) {
+        this.advanceToNextLevel();
+      } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by2 && wp.y <= by2 + bh) {
+        this.stayOnLevel();
+      }
+    });
+    overlay.pointer.useGraphicsBounds = true;
+
+    return overlay;
+  }
+
+  private showLevelComplete(): void {
+    this.levelCompleteShown = true;
+    this.levelCompleteOverlayActor.graphics.visible = true;
+  }
+
+  private advanceToNextLevel(): void {
+    this.levelService.advanceLevel();
+    this.levelStartScore = this.scoreService.getScore();
+    this.chaosEngine.setLevel(this.levelService.getLevel());
+    this.grid = createEmptyGrid();
+    this.dropTimer = 0;
+    this.chaosAccum = 0;
+    this.ignoreInput = false;
+    this.reverseInput = false;
+    this.ignoreTimer = 0;
+    this.reverseTimer = 0;
+    this.nextPieceHidden = false;
+    this.nextPieceHiddenTimer = 0;
+    this.keyRepeatDelay = this.KEY_REPEAT;
+    this.sidePanel.setChaosEffect('', 0);
+    this.sidePanel.setNextPieceHidden(false);
+    this.levelCompleteOverlayActor.graphics.visible = false;
+    this.levelCompleteShown = false;
+    this.nextPieceType = this.randomPieceType();
+    this.spawnPiece();
+    this.updateSidePanel();
+    this.updateBoardDisplay();
+  }
+
+  private stayOnLevel(): void {
+    this.levelCompleteOverlayActor.graphics.visible = false;
+    this.levelCompleteShown = false;
+  }
+
+  private resetCurrentLevel(): void {
+    this.grid = createEmptyGrid();
+    this.dropTimer = 0;
+    this.chaosAccum = 0;
+    this.ignoreInput = false;
+    this.reverseInput = false;
+    this.ignoreTimer = 0;
+    this.reverseTimer = 0;
+    this.nextPieceHidden = false;
+    this.nextPieceHiddenTimer = 0;
+    this.levelStartScore = this.scoreService.getScore();
+    this.keyRepeatDelay = this.KEY_REPEAT;
+    this.sidePanel.setChaosEffect('', 0);
+    this.sidePanel.setNextPieceHidden(false);
+    this.nextPieceType = this.randomPieceType();
+    this.spawnPiece();
+    this.updateSidePanel();
+    this.updateBoardDisplay();
+  }
+
+  private checkLevelCompletion(): void {
+    const levelScore = this.scoreService.getScore() - this.levelStartScore;
+    const lvl = this.levelService.getLevel();
+    if (levelScore >= this.levelService.getMaxScore() && lvl > this.highestReachedLevel) {
+      this.highestReachedLevel = lvl;
+    }
+    if (
+      this.levelCompleteShown === false &&
+      this.gameOver === false &&
+      levelScore >= this.levelService.getMaxScore() &&
+      lvl < MAX_LEVEL
+    ) {
+      this.showLevelComplete();
     }
   }
 
@@ -190,12 +371,13 @@ export class GameScene extends ex.Scene {
         ctx.font = '48px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120);
 
         const bw = 220, bh = 50;
         const bx = (CANVAS_WIDTH - bw) / 2;
-        const by1 = CANVAS_HEIGHT / 2 - 10;
-        const by2 = CANVAS_HEIGHT / 2 + 60;
+        const by1 = CANVAS_HEIGHT / 2 - 50;
+        const by2 = CANVAS_HEIGHT / 2 + 20;
+        const by3 = CANVAS_HEIGHT / 2 + 90;
 
         ctx.fillStyle = '#1a2a3a';
         ctx.fillRect(bx, by1, bw, bh);
@@ -212,23 +394,36 @@ export class GameScene extends ex.Scene {
         ctx.lineWidth = 2;
         ctx.strokeRect(bx, by2, bw, bh);
         ctx.fillStyle = '#ddeeff';
-        ctx.font = '22px monospace';
-        ctx.fillText('HOME', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
+        ctx.fillText('RESET LEVEL', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
+
+        ctx.fillStyle = '#1a2a3a';
+        ctx.fillRect(bx, by3, bw, bh);
+        ctx.strokeStyle = '#4a6a8a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by3, bw, bh);
+        ctx.fillStyle = '#ddeeff';
+        ctx.fillText('HOME', CANVAS_WIDTH / 2, by3 + bh / 2 + 2);
       },
     });
     overlay.graphics.use(graphic);
 
     overlay.on('pointerup', (evt) => {
+      if (!this.paused) return;
       const wp = evt.worldPos;
       const bw = 220, bh = 50;
       const bx = (CANVAS_WIDTH - bw) / 2;
-      const by1 = CANVAS_HEIGHT / 2 - 10;
-      const by2 = CANVAS_HEIGHT / 2 + 60;
+      const by1 = CANVAS_HEIGHT / 2 - 50;
+      const by2 = CANVAS_HEIGHT / 2 + 20;
+      const by3 = CANVAS_HEIGHT / 2 + 90;
 
       if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by1 && wp.y <= by1 + bh) {
         this.paused = false;
         this.pauseOverlayActor.graphics.visible = false;
       } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by2 && wp.y <= by2 + bh) {
+        this.paused = false;
+        this.pauseOverlayActor.graphics.visible = false;
+        this.resetCurrentLevel();
+      } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by3 && wp.y <= by3 + bh) {
         this.paused = false;
         this.pauseOverlayActor.graphics.visible = false;
         this.engine?.goToScene('menu');
@@ -341,6 +536,7 @@ export class GameScene extends ex.Scene {
 
     this.scoreService.addScore(10 * this.levelService.getLevel());
 
+    this.checkLevelCompletion();
     this.updateSidePanel();
     this.spawnPiece();
   }
@@ -430,7 +626,7 @@ export class GameScene extends ex.Scene {
     this.engine?.goToScene('gameover', {
       sceneActivationData: {
         score: this.scoreService.getScore(),
-        level: this.levelService.getLevel(),
+        level: this.highestReachedLevel,
       },
     });
   }
@@ -442,15 +638,37 @@ export class GameScene extends ex.Scene {
     }
   }
 
+  private lockPhantomCell(): void {
+    const empties: Array<{ row: number; col: number }> = [];
+    for (let r = 0; r < this.grid.length; r++) {
+      for (let c = 0; c < this.grid[r].length; c++) {
+        if (this.grid[r][c] === null) empties.push({ row: r, col: c });
+      }
+    }
+    if (empties.length === 0) return;
+    const target = empties[randomInt(0, empties.length - 1)];
+    this.grid[target.row][target.col] = '#888888';
+  }
+
+  private shiftBoardUp(): void {
+    if (this.grid[0].every(c => c === null)) {
+      for (let r = 0; r < this.grid.length - 1; r++) {
+        this.grid[r] = this.grid[r + 1];
+      }
+      this.grid[this.grid.length - 1] = Array(COLS).fill(null);
+    }
+  }
+
   private randomPieceType(): TetrominoType {
     return PIECE_TYPES[randomInt(0, PIECE_TYPES.length - 1)];
   }
 
   private updateSidePanel(): void {
     this.sidePanel.setNextPiece(this.nextPieceType);
-    this.sidePanel.setScore(this.scoreService.getScore());
+    this.sidePanel.setScore(this.scoreService.getScore() - this.levelStartScore);
     this.sidePanel.setLevel(this.levelService.getLevel());
     this.sidePanel.setLines(this.scoreService.getLinesCleared());
+    this.sidePanel.setMaxScore(this.levelService.getMaxScore());
   }
 
   private updateBoardDisplay(): void {

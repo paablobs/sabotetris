@@ -24,6 +24,7 @@ export interface LevelDef {
   chaosInterval: number;
   scoreMultiplier: number;
   backgroundColor: string;
+  maxScore: number;
 }
 
 export interface ScoreEntry {
@@ -39,6 +40,10 @@ export interface GameState {
   panicDrop(): void;
   setIgnoreInput(duration: number): void;
   setReverseInput(duration: number): void;
+  lockPhantomCell(): void;
+  setNextPieceHidden(duration: number): void;
+  forceNextPieceType(type: TetrominoType): void;
+  shiftBoardUp(): void;
 }
 
 export interface ChaosEffect {
