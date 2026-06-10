@@ -9,6 +9,7 @@ import type { Grid, PieceState } from '../../types';
 export class BoardActor extends ex.Actor {
   private grid: Grid;
   private currentPiece: PieceState | null = null;
+  private backgroundColor = '#0d0d1a';
 
   constructor() {
     super({
@@ -39,6 +40,10 @@ export class BoardActor extends ex.Actor {
     this.currentPiece = piece;
   }
 
+  setBackgroundColor(color: string): void {
+    this.backgroundColor = color;
+  }
+
   private draw(ctx: CanvasRenderingContext2D): void {
     this.drawBackground(ctx);
     this.drawPlacedCells(ctx);
@@ -48,7 +53,7 @@ export class BoardActor extends ex.Actor {
   }
 
   private drawBackground(ctx: CanvasRenderingContext2D): void {
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
   }
 

@@ -23,6 +23,8 @@ export class GameScene extends ex.Scene {
 
   private boardActor!: BoardActor;
   private sidePanel!: SidePanel;
+  private backgroundActor!: ex.Actor;
+  private backgroundSetColor: (c: string) => void = () => {};
 
   private scoreService = new ScoreService();
   private levelService = new LevelService();
@@ -58,6 +60,12 @@ export class GameScene extends ex.Scene {
 
   onInitialize(_engine: ex.Engine): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    const bg = this.createBackgroundActor();
+    this.backgroundActor = bg.actor;
+    this.backgroundSetColor = bg.setColor;
+    this.backgroundActor.z = -10;
+    this.add(this.backgroundActor);
+
     this.boardActor = new BoardActor();
     this.add(this.boardActor);
 
@@ -66,13 +74,46 @@ export class GameScene extends ex.Scene {
 
     this.pauseOverlayActor = this.createPauseOverlay();
     this.pauseOverlayActor.graphics.visible = false;
+    this.pauseOverlayActor.z = 100;
     this.add(this.pauseOverlayActor);
 
     this.levelCompleteOverlayActor = this.createLevelCompleteOverlay();
     this.levelCompleteOverlayActor.graphics.visible = false;
+    this.levelCompleteOverlayActor.z = 100;
     this.add(this.levelCompleteOverlayActor);
 
     this.initChaosEngine();
+  }
+
+  private createBackgroundActor(): { actor: ex.Actor; setColor: (c: string) => void } {
+    let color = '#0d0d1a';
+    const actor = new ex.Actor({
+      x: 0,
+      y: 0,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      anchor: ex.Vector.Zero,
+    });
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      draw: (ctx) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      },
+    });
+    actor.graphics.use(graphic);
+    return {
+      actor,
+      setColor: (c: string) => { color = c; },
+    };
+  }
+
+  private applyLevelVisuals(): void {
+    const color = this.levelService.getBackgroundColor();
+    this.backgroundSetColor(color);
+    this.boardActor.setBackgroundColor(color);
   }
 
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
@@ -108,6 +149,7 @@ export class GameScene extends ex.Scene {
     this.levelService.reset();
     this.levelStartScore = 0;
     this.chaosEngine.setLevel(this.levelService.getLevel());
+    this.applyLevelVisuals();
 
     this.nextPieceType = this.randomPieceType();
     this.spawnPiece();
@@ -292,6 +334,7 @@ export class GameScene extends ex.Scene {
     this.levelService.advanceLevel();
     this.levelStartScore = this.scoreService.getScore();
     this.chaosEngine.setLevel(this.levelService.getLevel());
+    this.applyLevelVisuals();
     this.grid = createEmptyGrid();
     this.dropTimer = 0;
     this.chaosAccum = 0;
@@ -538,6 +581,7 @@ export class GameScene extends ex.Scene {
 
       if (this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
         this.chaosEngine.setLevel(this.levelService.getLevel());
+        this.applyLevelVisuals();
       }
     }
 
