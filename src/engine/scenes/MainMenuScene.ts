@@ -1,5 +1,6 @@
 import * as ex from 'excalibur';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
+import { APP_VERSION, APP_BRANCH } from '../../generated/version';
 
 /**
  * MainMenuScene shows the game title and PLAY/RANKING buttons.
@@ -115,23 +116,25 @@ export class MainMenuScene extends ex.Scene {
   }
 
   private createVersion(): ex.Actor {
+    const label = `v${APP_VERSION}${APP_BRANCH && APP_BRANCH !== 'master' ? ` (${APP_BRANCH})` : ''}`;
+    const w = Math.max(110, label.length * 7 + 12);
     const actor = new ex.Actor({
-      x: CANVAS_WIDTH - 60,
-      y: CANVAS_HEIGHT - 20,
-      width: 60,
-      height: 20,
+      x: CANVAS_WIDTH - w / 2 - 6,
+      y: CANVAS_HEIGHT - 16,
+      width: w,
+      height: 18,
       anchor: ex.Vector.Half,
     });
     const graphic = new ex.Canvas({
       cache: true,
-      width: 60,
-      height: 20,
+      width: w,
+      height: 18,
       draw: (ctx) => {
         ctx.fillStyle = '#556677';
-        ctx.font = '11px monospace';
+        ctx.font = '10px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('v3.0', 30, 10);
+        ctx.fillText(label, w / 2, 9);
       },
     });
     actor.graphics.use(graphic);

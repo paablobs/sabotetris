@@ -59,3 +59,9 @@ npm run dev
 ```
 
 Open the URL printed by Vite (default `http://localhost:5173`).
+
+## Versioning
+
+The version shown on the main menu is generated automatically from the current git state. `npm run dev` and `npm run build` invoke a small script that writes `src/generated/version.ts` with the short commit hash (and a `-dirty` suffix when there are uncommitted changes). The file is gitignored — every build gets a fresh one.
+
+The format is `v{base}-{shortHash}`, e.g. `v2.0-f98229a` (or `v2.0-f98229a-dirty` for working-tree changes). On non-`master` branches, the branch name is appended in parentheses.

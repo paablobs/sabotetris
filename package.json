@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/version.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/version.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "version:gen": "node scripts/version.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
