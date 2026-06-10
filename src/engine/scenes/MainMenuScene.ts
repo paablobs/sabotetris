@@ -1,12 +1,20 @@
 import * as ex from 'excalibur';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import { APP_VERSION, APP_BRANCH } from '../../generated/version';
+import {
+  admin,
+  ADMIN_TAP_COUNT,
+  ADMIN_TAP_WINDOW_MS,
+} from '../services/AdminService';
 
 /**
  * MainMenuScene shows the game title and PLAY/RANKING buttons.
  * All UI is rendered as Excalibur actors with Canvas graphics.
  */
 export class MainMenuScene extends ex.Scene {
+  private adminBadgeActor!: ex.Actor;
+  private tapTimestamps: number[] = [];
+
   onInitialize(): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     this.add(this.createLogo());
@@ -17,10 +25,28 @@ export class MainMenuScene extends ex.Scene {
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 110, 200, 50, 'RANKING', () => {
       this.engine?.goToScene('ranking');
     }));
+    this.adminBadgeActor = this.createAdminBadge();
+    this.adminBadgeActor.graphics.visible = admin.isEnabled();
+    this.add(this.adminBadgeActor);
   }
 
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
-    // Reset scene state when activated
+    this.tapTimestamps = [];
+    this.adminBadgeActor.graphics.visible = admin.isEnabled();
+  }
+
+  onPreUpdate(engine: ex.Engine): void {
+    const kb = engine.input.keyboard;
+    if (kb.wasPressed(ex.Input.Keys.L)) {
+      const now = performance.now();
+      this.tapTimestamps = this.tapTimestamps.filter(t => now - t < ADMIN_TAP_WINDOW_MS);
+      this.tapTimestamps.push(now);
+      if (this.tapTimestamps.length >= ADMIN_TAP_COUNT) {
+        admin.toggle();
+        this.tapTimestamps = [];
+        this.adminBadgeActor.graphics.visible = admin.isEnabled();
+      }
+    }
   }
 
   private createLogo(): ex.Actor {
@@ -135,6 +161,37 @@ export class MainMenuScene extends ex.Scene {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(label, w / 2, 9);
+      },
+    });
+    actor.graphics.use(graphic);
+    return actor;
+  }
+
+  private createAdminBadge(): ex.Actor {
+    const w = 64;
+    const h = 20;
+    const actor = new ex.Actor({
+      x: 8 + w / 2,
+      y: CANVAS_HEIGHT - 8 - h / 2,
+      width: w,
+      height: h,
+      anchor: ex.Vector.Half,
+    });
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: w,
+      height: h,
+      draw: (ctx) => {
+        ctx.fillStyle = 'rgba(255, 77, 109, 0.18)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255, 77, 109, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, w, h);
+        ctx.fillStyle = '#ff8fa3';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('ADMIN', w / 2, h / 2 + 1);
       },
     });
     actor.graphics.use(graphic);

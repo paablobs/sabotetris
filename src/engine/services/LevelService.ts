@@ -42,6 +42,10 @@ export class LevelService {
     return true;
   }
 
+  setLevel(level: number): void {
+    this.level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+  }
+
   /**
    * Check if the level should advance based on total lines cleared.
    * Returns true if level changed.

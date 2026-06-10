@@ -15,6 +15,7 @@ import {
 } from '../../utils/helpers';
 import { BoardActor } from '../actors/Board';
 import { SidePanel } from '../actors/SidePanel';
+import { admin } from '../services/AdminService';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -513,6 +514,58 @@ export class GameScene extends ex.Scene {
     if (kb.wasPressed(ex.Input.Keys.Space) && !this.ignoreInput) {
       this.hardDrop();
     }
+
+    this.handleAdminInput(kb);
+  }
+
+  private handleAdminInput(kb: ex.Input.Keyboard): void {
+    if (!admin.isEnabled()) return;
+    if (this.paused || this.levelCompleteShown || this.gameOver) return;
+
+    if (kb.wasPressed(ex.Input.Keys.BracketRight)) {
+      this.adminJumpToLevel(this.levelService.getLevel() + 1);
+    } else if (kb.wasPressed(ex.Input.Keys.BracketLeft)) {
+      this.adminJumpToLevel(this.levelService.getLevel() - 1);
+    } else {
+      for (let n = 1; n <= 9; n++) {
+        const digitKey = ex.Input.Keys[`Digit${n}` as keyof typeof ex.Input.Keys];
+        if (kb.wasPressed(digitKey)) {
+          this.adminJumpToLevel(n);
+          break;
+        }
+      }
+      if (kb.wasPressed(ex.Input.Keys.Digit0)) {
+        this.adminJumpToLevel(10);
+      }
+    }
+  }
+
+  private adminJumpToLevel(target: number): void {
+    const clamped = Math.max(1, Math.min(MAX_LEVEL, target));
+    if (clamped === this.levelService.getLevel()) return;
+    this.levelService.setLevel(clamped);
+    this.chaosEngine.setLevel(this.levelService.getLevel());
+    this.grid = createEmptyGrid();
+    this.dropTimer = 0;
+    this.chaosAccum = 0;
+    this.softDropping = false;
+    this.ignoreInput = false;
+    this.reverseInput = false;
+    this.ignoreTimer = 0;
+    this.reverseTimer = 0;
+    this.nextPieceHidden = false;
+    this.nextPieceHiddenTimer = 0;
+    this.levelStartScore = this.scoreService.getScore();
+    this.levelCompleteShown = false;
+    this.levelCompleteOverlayActor.graphics.visible = false;
+    this.keyRepeatDelay = this.KEY_REPEAT;
+    this.sidePanel.setChaosEffect('', 0);
+    this.sidePanel.setNextPieceHidden(false);
+    this.applyLevelVisuals();
+    this.nextPieceType = this.randomPieceType();
+    this.spawnPiece();
+    this.updateSidePanel();
+    this.updateBoardDisplay();
   }
 
   private movePieceWithChecks(dRow: number, dCol: number): boolean {
