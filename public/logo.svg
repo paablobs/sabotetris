@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="96" viewBox="0 0 320 96" role="img" aria-label="Sabotetris logo">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0f0f1a"/>
+    </linearGradient>
+    <linearGradient id="crackGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff4d6d" stop-opacity="0.0"/>
+      <stop offset="50%" stop-color="#ff4d6d" stop-opacity="1.0"/>
+      <stop offset="100%" stop-color="#ffb86b" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="320" height="96" rx="12" fill="url(#bgGrad)"/>
+
+  <!-- Stacked tetromino pieces, left side -->
+  <g transform="translate(12, 14)">
+    <!-- Top T-piece -->
+    <g>
+      <rect x="14" y="0"  width="14" height="14" rx="2" fill="#b86bff"/>
+      <rect x="0"  y="14" width="14" height="14" rx="2" fill="#b86bff"/>
+      <rect x="14" y="14" width="14" height="14" rx="2" fill="#b86bff"/>
+      <rect x="28" y="14" width="14" height="14" rx="2" fill="#b86bff"/>
+    </g>
+    <!-- Middle L-piece -->
+    <g transform="translate(0, 32)">
+      <rect x="0"  y="0"  width="14" height="14" rx="2" fill="#4dd0ff"/>
+      <rect x="0"  y="14" width="14" height="14" rx="2" fill="#4dd0ff"/>
+      <rect x="0"  y="28" width="14" height="14" rx="2" fill="#4dd0ff"/>
+      <rect x="14" y="28" width="14" height="14" rx="2" fill="#4dd0ff"/>
+    </g>
+    <!-- Bottom sabotaged piece: I-piece, cracked and offset -->
+    <g transform="translate(18, 60)">
+      <rect x="0"  y="0"  width="14" height="14" rx="2" fill="#ff4d6d" opacity="0.55"/>
+      <rect x="14" y="0"  width="14" height="14" rx="2" fill="#ff4d6d" opacity="0.55"/>
+      <rect x="28" y="0"  width="14" height="14" rx="2" fill="#ff4d6d" opacity="0.55"/>
+      <rect x="42" y="0"  width="14" height="14" rx="2" fill="#ff4d6d" opacity="0.55"/>
+    </g>
+    <!-- Sabotaged piece drifted sideways -->
+    <g transform="translate(40, 64)">
+      <rect x="0"  y="0"  width="14" height="14" rx="2" fill="#ff4d6d"/>
+      <rect x="14" y="0"  width="14" height="14" rx="2" fill="#ff4d6d"/>
+      <rect x="28" y="0"  width="14" height="14" rx="2" fill="#ff4d6d"/>
+      <rect x="42" y="0"  width="14" height="14" rx="2" fill="#ff4d6d"/>
+    </g>
+    <!-- Crack line over the I-piece -->
+    <path d="M 18 78 L 36 70 L 56 80 L 84 66"
+          stroke="url(#crackGrad)" stroke-width="2.5" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Sparks -->
+    <circle cx="22" cy="74" r="1.6" fill="#ffb86b"/>
+    <circle cx="60" cy="76" r="1.6" fill="#ffb86b"/>
+    <circle cx="80" cy="68" r="1.4" fill="#ffe066"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(120, 0)" font-family="monospace, 'Courier New', monospace">
+    <text x="0" y="46" font-size="30" font-weight="700" fill="#ddeeff" letter-spacing="2">SABOTE</text>
+    <text x="0" y="76" font-size="30" font-weight="700" fill="#ff4d6d" letter-spacing="2">TRIS</text>
+    <text x="0" y="92" font-size="9"  font-weight="400" fill="#667788" letter-spacing="3">THE PIECES FIGHT BACK</text>
+  </g>
+</svg>

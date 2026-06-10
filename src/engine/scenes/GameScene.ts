@@ -32,6 +32,7 @@ export class GameScene extends ex.Scene {
   private chaosAccum = 0;
   private gameOver = false;
   private paused = false;
+  private softDropping = false;
 
   private highestReachedLevel = 1;
   private levelCompleteShown = false;
@@ -97,6 +98,7 @@ export class GameScene extends ex.Scene {
     this.nextPieceHiddenTimer = 0;
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.highestReachedLevel = 1;
     this.levelCompleteShown = false;
@@ -127,7 +129,8 @@ export class GameScene extends ex.Scene {
 
     const dt = delta / 1000;
     this.dropTimer += dt;
-    if (this.dropTimer >= this.getDropInterval()) {
+    const interval = this.softDropping ? this.getDropInterval() * 0.1 : this.getDropInterval();
+    if (this.dropTimer >= interval) {
       this.applyGravity();
       this.dropTimer = 0;
     }
@@ -292,6 +295,7 @@ export class GameScene extends ex.Scene {
     this.grid = createEmptyGrid();
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.softDropping = false;
     this.ignoreInput = false;
     this.reverseInput = false;
     this.ignoreTimer = 0;
@@ -318,6 +322,7 @@ export class GameScene extends ex.Scene {
     this.grid = createEmptyGrid();
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.softDropping = false;
     this.ignoreInput = false;
     this.reverseInput = false;
     this.ignoreTimer = 0;
@@ -460,7 +465,9 @@ export class GameScene extends ex.Scene {
       this.rotatePieceWithChecks();
     }
 
-    if (kb.wasPressed(ex.Input.Keys.Down) && !this.ignoreInput) {
+    this.softDropping = kb.isHeld(ex.Input.Keys.Down) && !this.ignoreInput;
+
+    if (kb.wasPressed(ex.Input.Keys.Space) && !this.ignoreInput) {
       this.hardDrop();
     }
   }

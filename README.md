@@ -6,13 +6,17 @@ A chaotic twist on classic Tetris built with [Excalibur.js](https://excaliburjs.
 
 ## Overview
 
-Sabotetris plays like standard Tetris, but a **Chaos Engine** periodically triggers random effects that disrupt your flow:
+Sabotetris plays like standard Tetris, but a **Chaos Engine** periodically triggers random effects that disrupt your flow. The effect pool grows with your level — 3 effects at level 1, one new effect per level, 12 at the top:
 
 - **Input lock** — controls freeze for a few seconds  
 - **Reverse controls** — left becomes right, right becomes left  
 - **Panic drop** — the current piece slams down immediately
+- **Phantom lock** *(L7+)* — a phantom block appears on the board
+- **Color blind** *(L8+)* — the next piece is hidden from view
+- **Famine** *(L9+)* — the same piece type repeats
+- **Quake** *(L10)* — the board shifts up by one row
 
-As your level increases, the pieces fall faster and chaos strikes more often.
+Each level has a target score. Hit it and you'll be offered the choice to advance (with a clear board) or stay in the same level.
 
 ## Controls
 
@@ -20,7 +24,8 @@ As your level increases, the pieces fall faster and chaos strikes more often.
 |-----|--------|
 | ← → | Move piece |
 | ↑ | Rotate piece |
-| ↓ | Hard drop |
+| ↓ | Speed up descent (soft drop) |
+| Space | Hard drop (slam down) |
 | Escape / P | Pause / Resume |
 | Enter | Save score (Game Over) |
 | Escape | Exit to menu (Game Over) |
