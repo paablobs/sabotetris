@@ -88,7 +88,7 @@ export class MainMenuScene extends ex.Scene {
         ctx.font = '11px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('v1.0', 30, 10);
+        ctx.fillText('v2.0', 30, 10);
       },
     });
     actor.graphics.use(graphic);
