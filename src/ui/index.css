@@ -33,6 +33,7 @@ html, body {
   width: 100%;
   max-width: 600px;
   height: auto;
+  min-width: 0;
   aspect-ratio: 540 / 700;
   image-rendering: pixelated;
   touch-action: none;
