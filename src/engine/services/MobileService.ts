@@ -4,6 +4,14 @@
  * Mobile is detected once at module load via touch capability AND coarse pointer
  * media query. On desktop (no touch / fine pointer) the entire touch layer is
  * skipped, so keyboard and mouse behavior are unaffected.
+ *
+ * Gesture model (one swipe = one discrete action, matching arrow keys):
+ *   - Swipe left  -> move one cell left
+ *   - Swipe right -> move one cell right
+ *   - Swipe down  -> move one cell down (soft drop step)
+ *   - Two down swipes in a row (<= 500 ms apart) -> hard drop
+ *   - Short tap on the board -> rotate
+ *   - Two-finger tap -> pause / resume
  */
 
 function detectCoarsePointer(): boolean {
@@ -20,10 +28,13 @@ export const isMobile: boolean = (() => {
   return hasTouch && detectCoarsePointer();
 })();
 
+type SwipeDirection = 'left' | 'right' | 'down';
+
 export interface TouchInputCallbacks {
   moveLeft: () => void;
   moveRight: () => void;
   rotate: () => void;
+  softDrop: () => void;
   hardDrop: () => void;
   pause: () => void;
 }
@@ -33,16 +44,13 @@ interface ActiveTouch {
   startX: number;
   startY: number;
   startTime: number;
-  lastFiredX: number;
-  direction: -1 | 0 | 1;
   firedSwipeOrDrop: boolean;
-  repeatEligibleAt: number;
 }
 
 const SWIPE_THRESHOLD = 32;
 const TAP_MAX_DURATION_MS = 300;
 const TAP_MAX_MOVE = 10;
-const REPEAT_DELAY_MS = 220;
+const DOUBLE_SWIPE_WINDOW_MS = 500;
 const BOARD_X = 20;
 const BOARD_Y = 30;
 const BOARD_WIDTH = 320;
@@ -57,6 +65,8 @@ export class TouchInput {
   private onUp: ((e: PointerEvent) => void) | null = null;
   private onCancel: ((e: PointerEvent) => void) | null = null;
   private enabled = false;
+  private lastSwipeDirection: SwipeDirection | null = null;
+  private lastSwipeTime = 0;
 
   constructor(canvas: HTMLCanvasElement, callbacks: TouchInputCallbacks) {
     this.canvas = canvas;
@@ -85,25 +95,27 @@ export class TouchInput {
     if (this.onCancel) this.canvas.removeEventListener('pointercancel', this.onCancel);
     this.onDown = this.onMove = this.onUp = this.onCancel = null;
     this.touches.clear();
+    this.lastSwipeDirection = null;
+    this.lastSwipeTime = 0;
   }
 
   setBlocked(blocked: boolean): void {
-    if (blocked) this.touches.clear();
+    if (blocked) {
+      this.touches.clear();
+      this.lastSwipeDirection = null;
+      this.lastSwipeTime = 0;
+    }
   }
 
   private handleDown(e: PointerEvent): void {
     if (e.pointerType !== 'touch') return;
     e.preventDefault();
-    const now = performance.now();
     this.touches.set(e.pointerId, {
       id: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      startTime: now,
-      lastFiredX: e.clientX,
-      direction: 0,
+      startTime: performance.now(),
       firedSwipeOrDrop: false,
-      repeatEligibleAt: now + REPEAT_DELAY_MS,
     });
     if (this.touches.size >= 2) {
       this.callbacks.pause();
@@ -113,7 +125,7 @@ export class TouchInput {
   private handleMove(e: PointerEvent): void {
     if (e.pointerType !== 'touch') return;
     const t = this.touches.get(e.pointerId);
-    if (!t) return;
+    if (!t || t.firedSwipeOrDrop) return;
 
     const dx = e.clientX - t.startX;
     const dy = e.clientY - t.startY;
@@ -121,32 +133,31 @@ export class TouchInput {
     const absDy = Math.abs(dy);
     const now = performance.now();
 
-    if (!t.firedSwipeOrDrop) {
-      if (dy > SWIPE_THRESHOLD && absDy > absDx) {
+    if (dy > SWIPE_THRESHOLD && absDy > absDx) {
+      t.firedSwipeOrDrop = true;
+      e.preventDefault();
+      if (
+        this.lastSwipeDirection === 'down' &&
+        now - this.lastSwipeTime < DOUBLE_SWIPE_WINDOW_MS
+      ) {
         this.callbacks.hardDrop();
-        t.firedSwipeOrDrop = true;
-        e.preventDefault();
-        return;
-      }
-      if (absDx > SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD * 1.2) {
-        t.direction = dx < 0 ? -1 : 1;
-        this.fireMove(t.direction);
-        t.lastFiredX = e.clientX;
-        t.repeatEligibleAt = now + REPEAT_DELAY_MS;
-        e.preventDefault();
-        return;
+        this.lastSwipeDirection = null;
+        this.lastSwipeTime = 0;
+      } else {
+        this.callbacks.softDrop();
+        this.lastSwipeDirection = 'down';
+        this.lastSwipeTime = now;
       }
       return;
     }
 
-    if (t.direction === 0) return;
-    if (now < t.repeatEligibleAt) return;
-    const advance = e.clientX - t.lastFiredX;
-    if (Math.abs(advance) > SWIPE_THRESHOLD) {
-      this.fireMove(t.direction);
-      t.lastFiredX = e.clientX;
-      t.repeatEligibleAt = now + REPEAT_DELAY_MS;
+    if (absDx > SWIPE_THRESHOLD && absDy < SWIPE_THRESHOLD * 1.2) {
+      t.firedSwipeOrDrop = true;
       e.preventDefault();
+      const dir: -1 | 1 = dx < 0 ? -1 : 1;
+      this.fireMove(dir);
+      this.lastSwipeDirection = dir === -1 ? 'left' : 'right';
+      this.lastSwipeTime = now;
     }
   }
 

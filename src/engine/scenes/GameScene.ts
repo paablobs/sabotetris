@@ -103,6 +103,10 @@ export class GameScene extends ex.Scene {
           if (this.ignoreInput) return;
           this.rotatePieceWithChecks();
         },
+        softDrop: () => {
+          if (this.ignoreInput) return;
+          this.movePieceWithChecks(1, 0);
+        },
         hardDrop: () => {
           if (this.ignoreInput) return;
           this.hardDrop();
