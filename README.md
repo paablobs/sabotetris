@@ -40,9 +40,10 @@ Detected automatically on touch devices with a coarse pointer. Keyboard and mous
 |---------|--------|
 | Swipe left | Move piece left |
 | Swipe right | Move piece right |
-| Swipe down | Hard drop (slam down) |
-| Tap on the playfield | Rotate piece |
-| Two-finger tap | Pause / Resume |
+| Swipe down | Soft drop (one cell down) |
+| Two-finger swipe (any direction) | Hard drop (slam down) |
+| Tap anywhere on the board | Rotate piece |
+| Phone back button | Pause / Resume |
 
 After pausing, the on-screen CONTINUE / RESET LEVEL / HOME buttons (which work for both mouse and touch) handle the rest.
 
