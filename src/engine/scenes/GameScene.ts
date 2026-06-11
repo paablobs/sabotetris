@@ -1,5 +1,5 @@
 import * as ex from 'excalibur';
-import { COLS, CANVAS_WIDTH, CANVAS_HEIGHT, BOARD_X, BOARD_Y, CELL_SIZE } from '../../types';
+import { COLS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import type { Grid, PieceState, TetrominoType, GameState } from '../../types';
 import { TETROMINOES, PIECE_TYPES } from '../../data/tetrominoes';
 import { LevelService } from '../services/LevelService';
@@ -691,15 +691,6 @@ export class GameScene extends ex.Scene {
       return true;
     }
     return false;
-  }
-
-  private isTapOnPiece(canvasX: number, canvasY: number): boolean {
-    if (!this.currentPiece) return false;
-    const cellCol = Math.floor((canvasX - BOARD_X) / CELL_SIZE) - this.currentPiece.col;
-    const cellRow = Math.floor((canvasY - BOARD_Y) / CELL_SIZE) - this.currentPiece.row;
-    if (cellRow < 0 || cellRow >= this.currentPiece.shape.length) return false;
-    if (cellCol < 0 || cellCol >= this.currentPiece.shape[0].length) return false;
-    return this.currentPiece.shape[cellRow][cellCol] === 1;
   }
 
   private rotatePieceWithChecks(): boolean {
