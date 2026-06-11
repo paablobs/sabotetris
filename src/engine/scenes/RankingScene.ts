@@ -1,6 +1,7 @@
 import * as ex from 'excalibur';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import { RankingService } from '../services/RankingService';
+import { audio } from '../services/AudioService';
 
 /**
  * RankingScene displays the top 20 scores stored in localStorage.
@@ -56,7 +57,10 @@ export class RankingScene extends ex.Scene {
     });
     backBtn.graphics.use(backGraphic);
 
-    backBtn.on('pointerup', () => engine.goToScene('menu'));
+    backBtn.on('pointerup', () => {
+      audio.playSfx('click');
+      engine.goToScene('menu');
+    });
     backBtn.pointer.useGraphicsBounds = true;
 
     this.add(backBtn);

@@ -17,6 +17,7 @@ import { BoardActor } from '../actors/Board';
 import { SidePanel } from '../actors/SidePanel';
 import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
+import { audio } from '../services/AudioService';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -148,12 +149,14 @@ export class GameScene extends ex.Scene {
       this.pauseOverlayActor.graphics.visible = false;
     }
     this.touchInput?.enable();
+    audio.playMusic('game');
     this.resetGame();
   }
 
   onDeactivate(): void {
     this.currentPiece = null;
     this.touchInput?.disable();
+    audio.stopMusic();
   }
 
   private resetGame(): void {
@@ -280,6 +283,8 @@ export class GameScene extends ex.Scene {
     if (kb.wasPressed(ex.Input.Keys.Escape) || kb.wasPressed(ex.Input.Keys.P)) {
       this.paused = !this.paused;
       this.pauseOverlayActor.graphics.visible = this.paused;
+      if (this.paused) audio.pauseMusic();
+      else audio.resumeMusic();
     }
   }
 
@@ -287,6 +292,8 @@ export class GameScene extends ex.Scene {
     if (this.gameOver || this.levelCompleteShown) return;
     this.paused = !this.paused;
     this.pauseOverlayActor.graphics.visible = this.paused;
+    if (this.paused) audio.pauseMusic();
+    else audio.resumeMusic();
   }
 
   private createLevelCompleteOverlay(): ex.Actor {
@@ -354,8 +361,10 @@ export class GameScene extends ex.Scene {
       const by2 = CANVAS_HEIGHT / 2 + 50;
 
       if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by1 && wp.y <= by1 + bh) {
+        audio.playSfx('click');
         this.advanceToNextLevel();
       } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by2 && wp.y <= by2 + bh) {
+        audio.playSfx('click');
         this.stayOnLevel();
       }
     });
@@ -504,13 +513,18 @@ export class GameScene extends ex.Scene {
       const by3 = CANVAS_HEIGHT / 2 + 90;
 
       if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by1 && wp.y <= by1 + bh) {
+        audio.playSfx('click');
         this.paused = false;
         this.pauseOverlayActor.graphics.visible = false;
+        audio.resumeMusic();
       } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by2 && wp.y <= by2 + bh) {
+        audio.playSfx('click');
         this.paused = false;
         this.pauseOverlayActor.graphics.visible = false;
+        audio.resumeMusic();
         this.resetCurrentLevel();
       } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by3 && wp.y <= by3 + bh) {
+        audio.playSfx('click');
         this.paused = false;
         this.pauseOverlayActor.graphics.visible = false;
         this.engine?.goToScene('menu');
@@ -669,10 +683,12 @@ export class GameScene extends ex.Scene {
       const lineScore = this.getLineClearScore(rows.length);
       this.scoreService.addScore(lineScore);
       this.scoreService.addLines(rows.length);
+      audio.playSfx('lineClear');
 
       if (this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
         this.chaosEngine.setLevel(this.levelService.getLevel());
         this.applyLevelVisuals();
+        audio.playSfx('levelUp');
       }
     }
 
@@ -764,6 +780,8 @@ export class GameScene extends ex.Scene {
 
   private endGame(): void {
     this.gameOver = true;
+    audio.stopMusic();
+    audio.playSfx('gameOver');
 
     this.engine?.goToScene('gameover', {
       sceneActivationData: {
@@ -777,6 +795,7 @@ export class GameScene extends ex.Scene {
     const effect = this.chaosEngine.applyRandomEffect();
     if (effect) {
       this.sidePanel.setChaosEffect(effect.name, 2000);
+      audio.playSfx('chaos');
     }
   }
 

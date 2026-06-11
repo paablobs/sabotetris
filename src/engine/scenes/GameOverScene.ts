@@ -1,6 +1,7 @@
 import * as ex from 'excalibur';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import { RankingService } from '../services/RankingService';
+import { audio } from '../services/AudioService';
 
 /**
  * GameOverScene shows final score, level reached, and name input for ranking.
@@ -201,6 +202,7 @@ export class GameOverScene extends ex.Scene {
 
   private addClickHandler(): void {
     this.overlayActor.on('pointerup', () => {
+      audio.playSfx('click');
       this.engine?.goToScene('menu');
     });
     this.overlayActor.pointer.useGraphicsBounds = true;

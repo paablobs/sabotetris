@@ -6,6 +6,7 @@ import {
   ADMIN_TAP_COUNT,
   ADMIN_TAP_WINDOW_MS,
 } from '../services/AdminService';
+import { audio } from '../services/AudioService';
 
 /**
  * MainMenuScene shows the game title and PLAY/RANKING buttons.
@@ -33,6 +34,7 @@ export class MainMenuScene extends ex.Scene {
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
     this.tapTimestamps = [];
     this.adminBadgeActor.graphics.visible = admin.isEnabled();
+    audio.playMusic('menu');
   }
 
   onPreUpdate(engine: ex.Engine): void {
@@ -234,7 +236,10 @@ export class MainMenuScene extends ex.Scene {
     });
     actor.graphics.use(graphic);
 
-    actor.on('pointerup', () => onClick());
+    actor.on('pointerup', () => {
+      audio.playSfx('click');
+      onClick();
+    });
     actor.pointer.useGraphicsBounds = true;
 
     return actor;
