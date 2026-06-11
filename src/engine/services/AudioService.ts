@@ -34,7 +34,6 @@ class AudioService {
   private musicTimer: number | null = null;
   private currentTrack: TrackId | null = null;
   private trackStartTime = 0;
-  private pausedAt = 0;
   private musicPaused = false;
   private pendingTrack: TrackId | null = null;
   private unlocked = false;
@@ -76,7 +75,6 @@ class AudioService {
     this.stopMusic();
     this.currentTrack = track;
     this.musicPaused = false;
-    this.pausedAt = 0;
 
     if (!this.ensureContext()) {
       this.pendingTrack = track;
@@ -93,14 +91,12 @@ class AudioService {
     this.killActiveVoices();
     this.currentTrack = null;
     this.musicPaused = false;
-    this.pausedAt = 0;
   }
 
   pauseMusic(): void {
     if (!this.currentTrack || this.musicPaused) return;
     if (!this.ctx) return;
     this.musicPaused = true;
-    this.pausedAt = this.ctx.currentTime - this.trackStartTime;
     if (this.musicTimer !== null) {
       clearTimeout(this.musicTimer);
       this.musicTimer = null;
@@ -111,12 +107,12 @@ class AudioService {
   resumeMusic(): void {
     if (!this.currentTrack || !this.musicPaused) return;
     this.musicPaused = false;
-    if (!this.ensureContext()) {
+    if (!this.ensureContext() || !this.ctx) {
       this.pendingTrack = this.currentTrack;
       return;
     }
-    const remaining = this.computeRemainingFromOffset(this.currentTrack, this.pausedAt);
-    this.scheduleTrackFrom(this.currentTrack, remaining, this.pausedAt);
+    this.trackStartTime = this.ctx.currentTime;
+    this.scheduleTrackLoop(this.currentTrack, this.trackStartTime);
   }
 
   playSfx(id: SfxId): void {
@@ -198,53 +194,50 @@ class AudioService {
   private startTrack(track: TrackId): void {
     if (!this.ctx) return;
     this.trackStartTime = this.ctx.currentTime;
-    this.scheduleTrackFrom(track, 0, 0);
+    this.scheduleTrackLoop(track, this.trackStartTime);
   }
 
-  private scheduleTrackFrom(track: TrackId, fromSec: number, baseOffset: number): void {
+  private scheduleTrackLoop(track: TrackId, loopStartTime: number): void {
     if (!this.ctx) return;
+    const now = this.ctx.currentTime;
     const def = TRACKS[track];
     const beatSec = 60 / def.bpm;
-    const leadNotes = def.lead;
-    const bassNotes = def.bass;
-    const totalBeats = leadNotes.reduce((sum, n) => sum + n.beats, 0);
-    const totalSec = totalBeats * beatSec;
+    const leadDuration = def.lead.reduce((sum, n) => sum + n.beats * beatSec, 0);
+    const bassDuration = def.bass.reduce((sum, n) => sum + n.beats * beatSec, 0);
+    const totalDuration = Math.max(leadDuration, bassDuration);
 
-    const cursor = this.ctx.currentTime - fromSec;
-    let beatCursor = -baseOffset;
-    for (const note of leadNotes) {
-      const start = cursor + beatCursor * beatSec;
-      const dur = note.beats * beatSec;
-      if (note.freq > 0 && dur > 0 && start + dur > this.ctx.currentTime) {
-        this.scheduleLead(start, note.freq, Math.max(0.04, dur * 0.92));
-      }
-      beatCursor += note.beats;
+    // If loopStartTime is far in the past, catch up to the current loop
+    while (loopStartTime + totalDuration < now) {
+      loopStartTime += totalDuration;
     }
 
-    let bassCursor = 0;
-    for (const note of bassNotes) {
-      const start = this.ctx.currentTime + bassCursor * beatSec - fromSec;
+    let noteTime = loopStartTime;
+    for (const note of def.lead) {
       const dur = note.beats * beatSec;
-      if (note.freq > 0 && dur > 0 && start + dur > this.ctx.currentTime) {
-        this.scheduleBass(start, note.freq, Math.max(0.05, dur * 0.88));
+      const start = Math.max(noteTime, now + 0.005);
+      if (note.freq > 0 && dur > 0 && start < noteTime + dur) {
+        this.scheduleLead(start, note.freq, (noteTime + dur - start) * 0.92);
       }
-      bassCursor += note.beats;
+      noteTime += dur;
     }
 
-    const remaining = Math.max(0.05, totalSec - fromSec);
+    noteTime = loopStartTime;
+    for (const note of def.bass) {
+      const dur = note.beats * beatSec;
+      const start = Math.max(noteTime, now + 0.005);
+      if (note.freq > 0 && dur > 0 && start < noteTime + dur) {
+        this.scheduleBass(start, note.freq, (noteTime + dur - start) * 0.88);
+      }
+      noteTime += dur;
+    }
+
+    const nextLoopStart = loopStartTime + totalDuration;
+    const delayMs = Math.max(10, (nextLoopStart - now) * 1000);
+
     this.musicTimer = window.setTimeout(() => {
       if (!this.currentTrack || this.musicPaused) return;
-      this.killActiveVoices();
-      this.scheduleTrackFrom(track, 0, 0);
-    }, remaining * 1000);
-  }
-
-  private computeRemainingFromOffset(track: TrackId, offsetSec: number): number {
-    const def = TRACKS[track];
-    const beatSec = 60 / def.bpm;
-    const totalBeats = def.lead.reduce((s, n) => s + n.beats, 0);
-    const totalSec = totalBeats * beatSec;
-    return Math.max(0.05, totalSec - offsetSec);
+      this.scheduleTrackLoop(track, nextLoopStart);
+    }, delayMs);
   }
 
   private scheduleLead(startTime: number, freq: number, duration: number): void {
@@ -440,9 +433,9 @@ class AudioService {
 }
 
 const NOTE_FREQ: Record<string, number> = {
-  C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+  A2: 110.00, B2: 123.47, C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
   C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
-  C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, B5: 987.77,
+  C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, GS5: 830.61, A5: 880.00, B5: 987.77,
   C6: 1046.50, D6: 1174.66, E6: 1318.51, F6: 1396.91,
   REST: 0,
 };
@@ -463,68 +456,63 @@ function bass(...entries: Array<[string, number]>): NoteEntry[] {
 
 const TRACKS: Record<TrackId, TrackDef> = {
   menu: {
-    bpm: 100,
+    bpm: 144,
     lead: lead(
-      ['E5', 0.5], ['B4', 0.25], ['C5', 0.25],
-      ['D5', 0.5], ['C5', 0.25], ['B4', 0.25],
-      ['A4', 0.5], ['A4', 0.5],
-      ['D5', 0.5], ['F5', 0.25], ['A5', 0.25],
-      ['G5', 0.5], ['F5', 0.5], ['E5', 0.5], ['C5', 0.5],
-      ['C5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5],
-      ['B4', 0.5], ['B4', 0.5], ['C5', 0.5], ['D5', 0.5],
-      ['E5', 0.5], ['C5', 0.5], ['A4', 0.5], ['A4', 0.5],
-      ['D5', 0.5], ['F5', 0.25], ['A5', 0.25],
-      ['C6', 0.5], ['B5', 0.5], ['A5', 0.5], ['G5', 0.5],
-      ['F5', 0.5], ['E5', 0.5], ['C5', 0.5], ['D5', 0.5],
-      ['A4', 0.5], ['B4', 0.5], ['G4', 0.5], ['A4', 0.5],
-      ['D4', 0.5], ['E4', 0.5], ['A4', 0.5], ['C5', 0.5],
-      ['D5', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5],
-      ['B4', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 0.5],
-      ['C5', 0.5], ['A4', 0.5], ['A4', 1.0], ['REST', 1.0]
+      ['E5', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['C5', 0.5], ['B4', 0.5],
+      ['A4', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      ['REST', 0.5], ['D5', 1], ['F5', 0.5], ['A5', 1], ['G5', 0.5], ['F5', 0.5],
+      ['E5', 1.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1]
     ),
     bass: bass(
-      ['A3', 4], ['A3', 4], ['F3', 4], ['C4', 4],
-      ['C4', 4], ['G3', 4], ['A3', 4], ['A3', 4],
-      ['D4', 4], ['A3', 4], ['A3', 4], ['A3', 4],
-      ['D4', 4], ['A3', 4], ['A3', 4], ['A3', 4]
+      ['A2', 4], ['A2', 4], ['A2', 4], ['A2', 4],
+      ['D2', 4], ['E2', 4], ['E2', 4], ['A2', 4]
     ),
   },
   game: {
     bpm: 144,
     lead: lead(
-      ['E5', 0.5], ['B4', 0.25], ['C5', 0.25],
-      ['D5', 0.5], ['C5', 0.25], ['B4', 0.25],
-      ['A4', 0.5], ['A4', 0.5],
-      ['D5', 0.5], ['F5', 0.25], ['A5', 0.25],
-      ['G5', 0.5], ['F5', 0.5], ['E5', 0.5], ['C5', 0.5],
-      ['C5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5],
-      ['B4', 0.5], ['B4', 0.5], ['C5', 0.5], ['D5', 0.5],
-      ['E5', 0.5], ['C5', 0.5], ['A4', 0.5], ['A4', 0.5],
-      ['D5', 0.5], ['F5', 0.25], ['A5', 0.25],
-      ['C6', 0.5], ['B5', 0.5], ['A5', 0.5], ['G5', 0.5],
-      ['F5', 0.5], ['E5', 0.5], ['C5', 0.5], ['D5', 0.5],
-      ['A4', 0.5], ['B4', 0.5], ['G4', 0.5], ['A4', 0.5],
-      ['D4', 0.5], ['E4', 0.5], ['A4', 0.5], ['C5', 0.5],
-      ['D5', 0.5], ['C5', 0.5], ['B4', 0.5], ['A4', 0.5],
-      ['B4', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 0.5],
-      ['C5', 0.5], ['A4', 0.5], ['A4', 1.0], ['REST', 1.0]
+      // Section 1 (A minor)
+      ['E5', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['C5', 0.5], ['B4', 0.5],
+      ['A4', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      // Section 2 (D minor / E major)
+      ['REST', 0.5], ['D5', 1], ['F5', 0.5], ['A5', 1], ['G5', 0.5], ['F5', 0.5],
+      ['E5', 1.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      // Section 3 (long notes)
+      ['E5', 2], ['C5', 2],
+      ['D5', 2], ['B4', 2],
+      ['C5', 2], ['A4', 2],
+      ['B4', 4],
+      // Section 4 (long notes with GS5)
+      ['E5', 2], ['C5', 2],
+      ['D5', 2], ['B4', 2],
+      ['C5', 1], ['E5', 1], ['A5', 2],
+      ['GS5', 4],
+      // Section 5 (repeat section 1)
+      ['E5', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['C5', 0.5], ['B4', 0.5],
+      ['A4', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      // Section 6 (with more rests)
+      ['REST', 0.5], ['D5', 1], ['F5', 0.5], ['A5', 1], ['G5', 0.5], ['F5', 0.5],
+      ['REST', 0.5], ['E5', 1], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['REST', 0.5], ['B4', 1], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['REST', 0.5], ['C5', 1], ['A4', 0.5], ['A4', 1], ['REST', 1]
     ),
     bass: bass(
-      ['A2', 1], ['A2', 1], ['E3', 1], ['A2', 1],
-      ['D3', 1], ['A2', 1], ['C3', 1], ['G2', 1],
-      ['C3', 1], ['G2', 1], ['A2', 1], ['E3', 1],
-      ['A2', 1], ['E3', 1], ['G2', 1], ['D3', 1],
-      ['D3', 1], ['A2', 1], ['E3', 1], ['A2', 1],
-      ['F3', 1], ['C3', 1], ['A2', 1], ['D3', 1],
-      ['D3', 1], ['A2', 1], ['C3', 1], ['G2', 1],
-      ['C3', 1], ['G2', 1], ['A2', 1], ['E3', 1],
-      ['A2', 1], ['A2', 1], ['A2', 1], ['A2', 1],
-      ['D3', 1], ['A2', 1], ['A2', 1], ['A2', 1],
-      ['D3', 1], ['A2', 1], ['D3', 1], ['A2', 1],
-      ['E3', 1], ['A2', 1], ['A2', 1], ['E3', 1],
-      ['A2', 1], ['E3', 1], ['A2', 1], ['A2', 1],
-      ['C3', 1], ['G2', 1], ['A2', 1], ['E3', 1],
-      ['A2', 2], ['REST', 2]
+      ['A2', 4], ['A2', 4], ['A2', 4], ['A2', 4],
+      ['D2', 4], ['E2', 4], ['E2', 4], ['A2', 4],
+      ['A2', 4], ['D2', 4], ['B2', 4], ['A2', 4],
+      ['E2', 4], ['D2', 4], ['A2', 4], ['E2', 4],
+      ['A2', 4], ['A2', 4], ['A2', 4], ['A2', 4],
+      ['D2', 4], ['E2', 4], ['E2', 4], ['A2', 4]
     ),
   },
 };
