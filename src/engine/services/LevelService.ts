@@ -48,11 +48,13 @@ export class LevelService {
 
   /**
    * Check if the level should advance based on total lines cleared.
+   * Only moves the level forward — a manual advance (e.g. via the
+   * score-target UI) can never be undone by an auto-advance call.
    * Returns true if level changed.
    */
   updateLevel(linesCleared: number): boolean {
     const newLevel = Math.min(MAX_LEVEL, Math.floor(linesCleared / LINES_PER_LEVEL) + 1);
-    if (newLevel !== this.level) {
+    if (newLevel > this.level) {
       this.level = newLevel;
       return true;
     }

@@ -43,6 +43,34 @@ class AudioService {
   private readonly musicVolume = 0.28;
   private readonly sfxVolume = 0.55;
 
+  private muted: boolean;
+
+  constructor() {
+    this.muted = readMuteFromStorage();
+  }
+
+  isMuted(): boolean {
+    return this.muted;
+  }
+
+  setMuted(muted: boolean): void {
+    if (this.muted === muted) return;
+    this.muted = muted;
+    writeMuteToStorage(muted);
+    this.applyMuteToMaster();
+  }
+
+  toggleMute(): boolean {
+    this.setMuted(!this.muted);
+    return this.muted;
+  }
+
+  private applyMuteToMaster(): void {
+    if (!this.masterGain || !this.ctx) return;
+    const target = this.muted ? 0 : this.masterVolume;
+    this.masterGain.gain.setValueAtTime(target, this.ctx.currentTime);
+  }
+
   playMusic(track: TrackId): void {
     if (this.currentTrack === track) return;
     this.stopMusic();
@@ -103,7 +131,7 @@ class AudioService {
   }
 
   setMasterVolume(v: number): void {
-    if (this.masterGain) this.masterGain.gain.value = clamp01(v);
+    if (this.masterGain && !this.muted) this.masterGain.gain.value = clamp01(v);
   }
 
   private ensureContext(): boolean {
@@ -113,7 +141,7 @@ class AudioService {
       if (!Ctor) return false;
       this.ctx = new Ctor();
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.masterVolume;
+      this.masterGain.gain.value = this.muted ? 0 : this.masterVolume;
       this.masterGain.connect(this.ctx.destination);
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = this.musicVolume;
@@ -507,4 +535,79 @@ function clamp01(v: number): number {
   return v;
 }
 
+const MUTE_STORAGE_KEY = 'sabotetris:mute';
+
+function readMuteFromStorage(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(MUTE_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeMuteToStorage(muted: boolean): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(MUTE_STORAGE_KEY, muted ? '1' : '0');
+  } catch {
+    // localStorage may be unavailable (private mode, quota, etc.)
+  }
+}
+
 export const audio = new AudioService();
+
+/**
+ * Draws a small speaker icon into a 2D canvas context.
+ * Used by the mute toggle buttons in the menu and game scenes.
+ */
+export function drawMuteIcon(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  muted: boolean,
+  color: string = '#ddeeff'
+): void {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1.2, size * 0.06);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const s = size;
+  const x0 = s * 0.18;
+  const yMid = s * 0.5;
+
+  ctx.beginPath();
+  ctx.moveTo(x0, yMid - s * 0.12);
+  ctx.lineTo(x0 + s * 0.18, yMid - s * 0.12);
+  ctx.lineTo(x0 + s * 0.38, yMid - s * 0.26);
+  ctx.lineTo(x0 + s * 0.38, yMid + s * 0.26);
+  ctx.lineTo(x0 + s * 0.18, yMid + s * 0.12);
+  ctx.lineTo(x0, yMid + s * 0.12);
+  ctx.closePath();
+  ctx.fill();
+
+  if (!muted) {
+    const waveX = x0 + s * 0.46;
+    ctx.beginPath();
+    ctx.arc(waveX, yMid, s * 0.08, -Math.PI / 3, Math.PI / 3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(waveX, yMid, s * 0.16, -Math.PI / 3, Math.PI / 3);
+    ctx.stroke();
+  } else {
+    const x1 = x0 + s * 0.46;
+    const x2 = x0 + s * 0.66;
+    const y1 = yMid - s * 0.16;
+    const y2 = yMid + s * 0.16;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.moveTo(x2, y1);
+    ctx.lineTo(x1, y2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}

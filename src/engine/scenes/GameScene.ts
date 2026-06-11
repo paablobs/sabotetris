@@ -17,7 +17,7 @@ import { BoardActor } from '../actors/Board';
 import { SidePanel } from '../actors/SidePanel';
 import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
-import { audio } from '../services/AudioService';
+import { audio, drawMuteIcon } from '../services/AudioService';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -86,6 +86,8 @@ export class GameScene extends ex.Scene {
     this.levelCompleteOverlayActor.z = 100;
     this.add(this.levelCompleteOverlayActor);
 
+    this.add(this.createMuteButton());
+
     if (isMobile) {
       const canvas = engine.canvas;
       this.touchInput = new TouchInput(canvas, {
@@ -141,6 +143,41 @@ export class GameScene extends ex.Scene {
     const color = this.levelService.getBackgroundColor();
     this.backgroundSetColor(color);
     this.boardActor.setBackgroundColor(color);
+  }
+
+  private createMuteButton(): ex.Actor {
+    const size = 28;
+    const actor = new ex.Actor({
+      x: CANVAS_WIDTH - 8 - size / 2,
+      y: 8 + size / 2,
+      width: size,
+      height: size,
+      anchor: ex.Vector.Half,
+      z: 50,
+    });
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: size,
+      height: size,
+      draw: (ctx) => {
+        const muted = audio.isMuted();
+        const accent = muted ? '#ff4d6d' : '#4dd0ff';
+        ctx.fillStyle = muted ? 'rgba(255, 77, 109, 0.18)' : 'rgba(77, 208, 255, 0.18)';
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = muted ? 'rgba(255, 77, 109, 0.6)' : 'rgba(77, 208, 255, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, size, size);
+        drawMuteIcon(ctx, size, muted, accent);
+      },
+    });
+    actor.graphics.use(graphic);
+
+    actor.on('pointerup', () => {
+      audio.toggleMute();
+    });
+    actor.pointer.useGraphicsBounds = true;
+
+    return actor;
   }
 
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
@@ -381,6 +418,7 @@ export class GameScene extends ex.Scene {
   private advanceToNextLevel(): void {
     this.levelService.advanceLevel();
     this.levelStartScore = this.scoreService.getScore();
+    this.highestReachedLevel = this.levelService.getLevel();
     this.chaosEngine.setLevel(this.levelService.getLevel());
     this.applyLevelVisuals();
     this.grid = createEmptyGrid();
@@ -567,6 +605,10 @@ export class GameScene extends ex.Scene {
       this.hardDrop();
     }
 
+    if (kb.wasPressed(ex.Input.Keys.M)) {
+      audio.toggleMute();
+    }
+
     this.handleAdminInput(kb);
   }
 
@@ -688,11 +730,11 @@ export class GameScene extends ex.Scene {
       if (this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
         this.chaosEngine.setLevel(this.levelService.getLevel());
         this.applyLevelVisuals();
+        this.levelStartScore = this.scoreService.getScore();
+        this.highestReachedLevel = this.levelService.getLevel();
         audio.playSfx('levelUp');
       }
     }
-
-    this.scoreService.addScore(10 * this.levelService.getLevel());
 
     this.checkLevelCompletion();
     this.updateSidePanel();

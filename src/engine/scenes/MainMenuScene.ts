@@ -6,7 +6,7 @@ import {
   ADMIN_TAP_COUNT,
   ADMIN_TAP_WINDOW_MS,
 } from '../services/AdminService';
-import { audio } from '../services/AudioService';
+import { audio, drawMuteIcon } from '../services/AudioService';
 
 /**
  * MainMenuScene shows the game title and PLAY/RANKING buttons.
@@ -20,6 +20,7 @@ export class MainMenuScene extends ex.Scene {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     this.add(this.createLogo());
     this.add(this.createVersion());
+    this.add(this.createMuteButton());
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, 200, 50, 'PLAY', () => {
       this.engine?.goToScene('game');
     }));
@@ -39,6 +40,9 @@ export class MainMenuScene extends ex.Scene {
 
   onPreUpdate(engine: ex.Engine): void {
     const kb = engine.input.keyboard;
+    if (kb.wasPressed(ex.Input.Keys.M)) {
+      audio.toggleMute();
+    }
     if (kb.wasPressed(ex.Input.Keys.L)) {
       const now = performance.now();
       this.tapTimestamps = this.tapTimestamps.filter(t => now - t < ADMIN_TAP_WINDOW_MS);
@@ -197,6 +201,40 @@ export class MainMenuScene extends ex.Scene {
       },
     });
     actor.graphics.use(graphic);
+    return actor;
+  }
+
+  private createMuteButton(): ex.Actor {
+    const size = 32;
+    const actor = new ex.Actor({
+      x: CANVAS_WIDTH - 8 - size / 2,
+      y: 8 + size / 2,
+      width: size,
+      height: size,
+      anchor: ex.Vector.Half,
+    });
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: size,
+      height: size,
+      draw: (ctx) => {
+        const muted = audio.isMuted();
+        const accent = muted ? '#ff4d6d' : '#4dd0ff';
+        ctx.fillStyle = muted ? 'rgba(255, 77, 109, 0.18)' : 'rgba(77, 208, 255, 0.18)';
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = muted ? 'rgba(255, 77, 109, 0.6)' : 'rgba(77, 208, 255, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, size, size);
+        drawMuteIcon(ctx, size, muted, accent);
+      },
+    });
+    actor.graphics.use(graphic);
+
+    actor.on('pointerup', () => {
+      audio.toggleMute();
+    });
+    actor.pointer.useGraphicsBounds = true;
+
     return actor;
   }
 
