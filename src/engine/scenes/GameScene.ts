@@ -1,5 +1,5 @@
 import * as ex from 'excalibur';
-import { COLS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
+import { COLS, CANVAS_WIDTH, CANVAS_HEIGHT, BOARD_X, BOARD_Y, CELL_SIZE } from '../../types';
 import type { Grid, PieceState, TetrominoType, GameState } from '../../types';
 import { TETROMINOES, PIECE_TYPES } from '../../data/tetrominoes';
 import { LevelService } from '../services/LevelService';
@@ -29,6 +29,7 @@ export class GameScene extends ex.Scene {
   private backgroundActor!: ex.Actor;
   private backgroundSetColor: (c: string) => void = () => {};
   private touchInput: TouchInput | null = null;
+  private popstateHandler: (() => void) | null = null;
 
   private scoreService = new ScoreService();
   private levelService = new LevelService();
@@ -99,9 +100,11 @@ export class GameScene extends ex.Scene {
           if (this.ignoreInput) return;
           this.movePieceWithChecks(0, this.reverseInput ? -1 : 1);
         },
-        rotate: () => {
+        rotate: (cx, cy) => {
           if (this.ignoreInput) return;
-          this.rotatePieceWithChecks();
+          if (this.isTapOnPiece(cx, cy)) {
+            this.rotatePieceWithChecks();
+          }
         },
         softDrop: () => {
           if (this.ignoreInput) return;
@@ -111,7 +114,6 @@ export class GameScene extends ex.Scene {
           if (this.ignoreInput) return;
           this.hardDrop();
         },
-        pause: () => this.togglePauseFromTouch(),
       });
     }
 
@@ -150,10 +152,10 @@ export class GameScene extends ex.Scene {
   }
 
   private createMuteButton(): ex.Actor {
-    const size = 28;
+    const size = 44;
     const actor = new ex.Actor({
-      x: CANVAS_WIDTH - 8 - size / 2,
-      y: 8 + size / 2,
+      x: CANVAS_WIDTH - 12 - size / 2,
+      y: 12 + size / 2,
       width: size,
       height: size,
       anchor: ex.Vector.Half,
@@ -176,7 +178,7 @@ export class GameScene extends ex.Scene {
     });
     actor.graphics.use(graphic);
 
-    actor.on('pointerup', () => {
+    actor.on('pointerdown', () => {
       audio.toggleMute();
     });
     actor.pointer.useGraphicsBounds = true;
@@ -192,12 +194,25 @@ export class GameScene extends ex.Scene {
     this.touchInput?.enable();
     audio.playMusic('game');
     this.resetGame();
+
+    if (isMobile) {
+      history.pushState({ sabo: 'game' }, '');
+      this.popstateHandler = () => {
+        history.pushState({ sabo: 'game' }, '');
+        this.togglePauseFromTouch();
+      };
+      window.addEventListener('popstate', this.popstateHandler);
+    }
   }
 
   onDeactivate(): void {
     this.currentPiece = null;
     this.touchInput?.disable();
     audio.stopMusic();
+    if (this.popstateHandler) {
+      window.removeEventListener('popstate', this.popstateHandler);
+      this.popstateHandler = null;
+    }
   }
 
   private resetGame(): void {
@@ -678,6 +693,15 @@ export class GameScene extends ex.Scene {
       return true;
     }
     return false;
+  }
+
+  private isTapOnPiece(canvasX: number, canvasY: number): boolean {
+    if (!this.currentPiece) return false;
+    const cellCol = Math.floor((canvasX - BOARD_X) / CELL_SIZE) - this.currentPiece.col;
+    const cellRow = Math.floor((canvasY - BOARD_Y) / CELL_SIZE) - this.currentPiece.row;
+    if (cellRow < 0 || cellRow >= this.currentPiece.shape.length) return false;
+    if (cellCol < 0 || cellCol >= this.currentPiece.shape[0].length) return false;
+    return this.currentPiece.shape[cellRow][cellCol] === 1;
   }
 
   private rotatePieceWithChecks(): boolean {

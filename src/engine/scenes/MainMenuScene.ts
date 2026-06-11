@@ -205,10 +205,10 @@ export class MainMenuScene extends ex.Scene {
   }
 
   private createMuteButton(): ex.Actor {
-    const size = 32;
+    const size = 44;
     const actor = new ex.Actor({
-      x: CANVAS_WIDTH - 8 - size / 2,
-      y: 8 + size / 2,
+      x: CANVAS_WIDTH - 12 - size / 2,
+      y: 12 + size / 2,
       width: size,
       height: size,
       anchor: ex.Vector.Half,
@@ -230,7 +230,7 @@ export class MainMenuScene extends ex.Scene {
     });
     actor.graphics.use(graphic);
 
-    actor.on('pointerup', () => {
+    actor.on('pointerdown', () => {
       audio.toggleMute();
     });
     actor.pointer.useGraphicsBounds = true;

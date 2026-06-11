@@ -5,13 +5,14 @@
  * media query. On desktop (no touch / fine pointer) the entire touch layer is
  * skipped, so keyboard and mouse behavior are unaffected.
  *
- * Gesture model (one swipe = one discrete action, matching arrow keys):
+ * Gesture model (one finger = one discrete action):
  *   - Swipe left  -> move one cell left
  *   - Swipe right -> move one cell right
  *   - Swipe down  -> move one cell down (soft drop step)
- *   - Two down swipes in a row (<= 500 ms apart) -> hard drop
- *   - Short tap on the board -> rotate
- *   - Two-finger tap -> pause / resume
+ *   - Two-finger swipe (any direction) -> hard drop
+ *   - Short tap on the current piece -> rotate
+ *   - Pause is NOT triggered by any touch gesture; the phone's back
+ *     button is wired to it from GameScene instead.
  */
 
 function detectCoarsePointer(): boolean {
@@ -28,15 +29,12 @@ export const isMobile: boolean = (() => {
   return hasTouch && detectCoarsePointer();
 })();
 
-type SwipeDirection = 'left' | 'right' | 'down';
-
 export interface TouchInputCallbacks {
   moveLeft: () => void;
   moveRight: () => void;
-  rotate: () => void;
+  rotate: (canvasX: number, canvasY: number) => void;
   softDrop: () => void;
   hardDrop: () => void;
-  pause: () => void;
 }
 
 interface ActiveTouch {
@@ -50,7 +48,6 @@ interface ActiveTouch {
 const SWIPE_THRESHOLD = 32;
 const TAP_MAX_DURATION_MS = 300;
 const TAP_MAX_MOVE = 10;
-const DOUBLE_SWIPE_WINDOW_MS = 500;
 const BOARD_X = 20;
 const BOARD_Y = 30;
 const BOARD_WIDTH = 320;
@@ -65,8 +62,7 @@ export class TouchInput {
   private onUp: ((e: PointerEvent) => void) | null = null;
   private onCancel: ((e: PointerEvent) => void) | null = null;
   private enabled = false;
-  private lastSwipeDirection: SwipeDirection | null = null;
-  private lastSwipeTime = 0;
+  private twoFingerFired = false;
 
   constructor(canvas: HTMLCanvasElement, callbacks: TouchInputCallbacks) {
     this.canvas = canvas;
@@ -95,15 +91,13 @@ export class TouchInput {
     if (this.onCancel) this.canvas.removeEventListener('pointercancel', this.onCancel);
     this.onDown = this.onMove = this.onUp = this.onCancel = null;
     this.touches.clear();
-    this.lastSwipeDirection = null;
-    this.lastSwipeTime = 0;
+    this.twoFingerFired = false;
   }
 
   setBlocked(blocked: boolean): void {
     if (blocked) {
       this.touches.clear();
-      this.lastSwipeDirection = null;
-      this.lastSwipeTime = 0;
+      this.twoFingerFired = false;
     }
   }
 
@@ -117,9 +111,6 @@ export class TouchInput {
       startTime: performance.now(),
       firedSwipeOrDrop: false,
     });
-    if (this.touches.size >= 2) {
-      this.callbacks.pause();
-    }
   }
 
   private handleMove(e: PointerEvent): void {
@@ -131,23 +122,28 @@ export class TouchInput {
     const dy = e.clientY - t.startY;
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
-    const now = performance.now();
+
+    // Two-finger swipe (any direction) -> hard drop, once per gesture.
+    if (this.touches.size >= 2 && (absDx > SWIPE_THRESHOLD || absDy > SWIPE_THRESHOLD)) {
+      if (!this.twoFingerFired) {
+        this.twoFingerFired = true;
+        this.callbacks.hardDrop();
+        t.firedSwipeOrDrop = true;
+        e.preventDefault();
+        for (const other of this.touches.values()) {
+          other.firedSwipeOrDrop = true;
+        }
+      }
+      return;
+    }
+
+    // Single-finger swipes only fire while exactly one finger is down.
+    if (this.touches.size !== 1) return;
 
     if (dy > SWIPE_THRESHOLD && absDy > absDx) {
       t.firedSwipeOrDrop = true;
       e.preventDefault();
-      if (
-        this.lastSwipeDirection === 'down' &&
-        now - this.lastSwipeTime < DOUBLE_SWIPE_WINDOW_MS
-      ) {
-        this.callbacks.hardDrop();
-        this.lastSwipeDirection = null;
-        this.lastSwipeTime = 0;
-      } else {
-        this.callbacks.softDrop();
-        this.lastSwipeDirection = 'down';
-        this.lastSwipeTime = now;
-      }
+      this.callbacks.softDrop();
       return;
     }
 
@@ -156,8 +152,6 @@ export class TouchInput {
       e.preventDefault();
       const dir: -1 | 1 = dx < 0 ? -1 : 1;
       this.fireMove(dir);
-      this.lastSwipeDirection = dir === -1 ? 'left' : 'right';
-      this.lastSwipeTime = now;
     }
   }
 
@@ -165,6 +159,11 @@ export class TouchInput {
     if (e.pointerType !== 'touch') return;
     const t = this.touches.get(e.pointerId);
     this.touches.delete(e.pointerId);
+
+    if (this.touches.size === 0) {
+      this.twoFingerFired = false;
+    }
+
     if (!t || t.firedSwipeOrDrop) return;
 
     const dt = performance.now() - t.startTime;
@@ -174,7 +173,8 @@ export class TouchInput {
     if (totalDx > TAP_MAX_MOVE || totalDy > TAP_MAX_MOVE) return;
     if (!this.isInsideBoard(e.clientX, e.clientY)) return;
 
-    this.callbacks.rotate();
+    const { x, y } = this.clientToCanvas(e.clientX, e.clientY);
+    this.callbacks.rotate(x, y);
   }
 
   private fireMove(direction: -1 | 1): void {
@@ -182,18 +182,24 @@ export class TouchInput {
     else this.callbacks.moveRight();
   }
 
-  private isInsideBoard(x: number, y: number): boolean {
+  private clientToCanvas(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return false;
+    if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
-    const localX = (x - rect.left) * scaleX;
-    const localY = (y - rect.top) * scaleY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
+
+  private isInsideBoard(x: number, y: number): boolean {
+    const { x: lx, y: ly } = this.clientToCanvas(x, y);
     return (
-      localX >= BOARD_X &&
-      localX < BOARD_X + BOARD_WIDTH &&
-      localY >= BOARD_Y &&
-      localY < BOARD_Y + BOARD_HEIGHT
+      lx >= BOARD_X &&
+      lx < BOARD_X + BOARD_WIDTH &&
+      ly >= BOARD_Y &&
+      ly < BOARD_Y + BOARD_HEIGHT
     );
   }
 }
