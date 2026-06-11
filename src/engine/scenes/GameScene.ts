@@ -15,6 +15,8 @@ import {
 } from '../../utils/helpers';
 import { BoardActor } from '../actors/Board';
 import { SidePanel } from '../actors/SidePanel';
+import { DVDActor } from '../actors/DVD';
+import { SpaceInvaderActor } from '../actors/SpaceInvader';
 import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
 import { audio, drawMuteIcon } from '../services/AudioService';
@@ -58,6 +60,9 @@ export class GameScene extends ex.Scene {
   private pauseOverlayActor!: ex.Actor;
   private levelCompleteOverlayActor!: ex.Actor;
 
+  private mode: 'softcore' | 'hardcore' = 'softcore';
+  private dvdActor: DVDActor | null = null;
+
   constructor() {
     super();
     this.grid = createEmptyGrid();
@@ -100,7 +105,7 @@ export class GameScene extends ex.Scene {
           if (this.ignoreInput) return;
           this.movePieceWithChecks(0, this.reverseInput ? -1 : 1);
         },
-        rotate: (_cx, _cy) => {
+        rotate: () => {
           if (this.ignoreInput) return;
           this.rotatePieceWithChecks();
         },
@@ -190,8 +195,19 @@ export class GameScene extends ex.Scene {
       this.pauseOverlayActor.graphics.visible = false;
     }
     this.touchInput?.enable();
-    audio.playMusic('game');
+
+    const data = _context.data as { mode?: 'softcore' | 'hardcore' } | undefined;
+    this.mode = data?.mode ?? 'softcore';
+
     this.resetGame();
+
+    if (this.mode === 'hardcore') {
+      audio.playMusic('hardcore');
+      this.dvdActor = new DVDActor();
+      this.add(this.dvdActor);
+    } else {
+      audio.playMusic('game');
+    }
 
     if (isMobile) {
       history.pushState({ sabo: 'game' }, '');
@@ -210,6 +226,10 @@ export class GameScene extends ex.Scene {
     if (this.popstateHandler) {
       window.removeEventListener('popstate', this.popstateHandler);
       this.popstateHandler = null;
+    }
+    if (this.dvdActor) {
+      this.dvdActor.kill();
+      this.dvdActor = null;
     }
   }
 
@@ -232,6 +252,9 @@ export class GameScene extends ex.Scene {
 
     this.scoreService.reset();
     this.levelService.reset();
+    if (this.mode === 'hardcore') {
+      this.levelService.enableHardcoreMode();
+    }
     this.levelStartScore = 0;
     this.chaosEngine.setLevel(this.levelService.getLevel());
     this.applyLevelVisuals();
@@ -284,6 +307,9 @@ export class GameScene extends ex.Scene {
   }
 
   private getChaosInterval(): number {
+    if (this.mode === 'hardcore') {
+      return Math.random() * 4 + 1;
+    }
     return Math.max(0.8, 5 - (this.levelService.getLevel() - 1) * 0.45);
   }
 
@@ -302,8 +328,9 @@ export class GameScene extends ex.Scene {
       },
       forceNextPieceType: (t: TetrominoType) => { this.nextPieceType = t; },
       shiftBoardUp: () => this.shiftBoardUp(),
+      spawnSpaceInvader: () => this.spawnSpaceInvader(),
     };
-    this.chaosEngine = new ChaosEngine(this.levelService.getLevel(), gameState);
+    this.chaosEngine = new ChaosEngine(this.levelService.getLevel(), gameState, this.mode);
   }
 
   private updateTimedEffects(delta: number): void {
@@ -486,6 +513,7 @@ export class GameScene extends ex.Scene {
   }
 
   private checkLevelCompletion(): void {
+    if (this.mode === 'hardcore') return;
     const levelScore = this.scoreService.getScore() - this.levelStartScore;
     const lvl = this.levelService.getLevel();
     if (levelScore >= this.levelService.getMaxScore() && lvl > this.highestReachedLevel) {
@@ -842,10 +870,16 @@ export class GameScene extends ex.Scene {
     audio.stopMusic();
     audio.playSfx('gameOver');
 
+    if (this.dvdActor) {
+      this.dvdActor.kill();
+      this.dvdActor = null;
+    }
+
     this.engine?.goToScene('gameover', {
       sceneActivationData: {
         score: this.scoreService.getScore(),
         level: this.highestReachedLevel,
+        mode: this.mode,
       },
     });
   }
@@ -877,6 +911,11 @@ export class GameScene extends ex.Scene {
       }
       this.grid[this.grid.length - 1] = Array(COLS).fill(null);
     }
+  }
+
+  private spawnSpaceInvader(): void {
+    const invader = new SpaceInvaderActor(this.grid);
+    this.add(invader);
   }
 
   private randomPieceType(): TetrominoType {

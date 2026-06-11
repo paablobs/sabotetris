@@ -16,10 +16,12 @@ export class ChaosEngine {
   private effects: LeveledEffect[] = [];
   private gameState: GameState;
   private level: number;
+  private mode: 'softcore' | 'hardcore';
 
-  constructor(level: number, gameState: GameState) {
+  constructor(level: number, gameState: GameState, mode: 'softcore' | 'hardcore' = 'softcore') {
     this.level = level;
     this.gameState = gameState;
+    this.mode = mode;
     this.registerDefaultEffects();
   }
 
@@ -65,6 +67,9 @@ export class ChaosEngine {
       { minLevel: 9, effect: new FamineEffect() },
       { minLevel: 10, effect: new QuakeEffect() },
     ];
+    if (this.mode === 'hardcore') {
+      this.effects.push({ minLevel: 1, effect: new SpaceInvaderEffect() });
+    }
   }
 }
 
@@ -185,5 +190,13 @@ class QuakeEffect implements ChaosEffect {
   readonly description = 'The board shifts up!';
   execute(state: GameState): void {
     state.shiftBoardUp();
+  }
+}
+
+class SpaceInvaderEffect implements ChaosEffect {
+  readonly name = 'Space Invader';
+  readonly description = 'An invader appears and shoots at your board!';
+  execute(state: GameState): void {
+    state.spawnSpaceInvader();
   }
 }

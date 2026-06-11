@@ -21,7 +21,9 @@ export class RankingService {
 
   addEntry(entry: ScoreEntry): void {
     const entries = this.getRanking();
-    entries.push(entry);
+    // Backward-compat: entries without mode default to softcore
+    const normalized = entry.mode ? entry : { ...entry, mode: 'softcore' as const };
+    entries.push(normalized);
     entries.sort((a, b) => b.score - a.score);
     const trimmed = entries.slice(0, MAX_ENTRIES);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));

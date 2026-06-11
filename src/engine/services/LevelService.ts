@@ -1,4 +1,4 @@
-import { LEVELS, MAX_LEVEL, LINES_PER_LEVEL } from '../../data/levels';
+import { LEVELS, MAX_LEVEL, LINES_PER_LEVEL, HARDCORE_LEVEL } from '../../data/levels';
 import type { LevelDef } from '../../types';
 
 /**
@@ -7,12 +7,26 @@ import type { LevelDef } from '../../types';
  */
 export class LevelService {
   private level = 1;
+  private hardcoreMode = false;
 
   getLevel(): number {
-    return this.level;
+    return this.hardcoreMode ? HARDCORE_LEVEL.level : this.level;
+  }
+
+  isHardcoreMode(): boolean {
+    return this.hardcoreMode;
+  }
+
+  enableHardcoreMode(): void {
+    this.hardcoreMode = true;
+  }
+
+  disableHardcoreMode(): void {
+    this.hardcoreMode = false;
   }
 
   getLevelDef(): LevelDef {
+    if (this.hardcoreMode) return HARDCORE_LEVEL;
     return LEVELS[this.level - 1] || LEVELS[MAX_LEVEL - 1];
   }
 
@@ -37,6 +51,7 @@ export class LevelService {
   }
 
   advanceLevel(): boolean {
+    if (this.hardcoreMode) return false;
     if (this.level >= MAX_LEVEL) return false;
     this.level++;
     return true;
@@ -53,6 +68,7 @@ export class LevelService {
    * Returns true if level changed.
    */
   updateLevel(linesCleared: number): boolean {
+    if (this.hardcoreMode) return false;
     const newLevel = Math.min(MAX_LEVEL, Math.floor(linesCleared / LINES_PER_LEVEL) + 1);
     if (newLevel > this.level) {
       this.level = newLevel;
@@ -63,5 +79,6 @@ export class LevelService {
 
   reset(): void {
     this.level = 1;
+    this.hardcoreMode = false;
   }
 }

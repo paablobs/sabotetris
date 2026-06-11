@@ -12,7 +12,7 @@
  */
 
 type SfxId = 'click' | 'lineClear' | 'levelUp' | 'gameOver' | 'chaos';
-type TrackId = 'menu' | 'game';
+type TrackId = 'menu' | 'game' | 'hardcore';
 
 interface Voice {
   osc: OscillatorNode;
@@ -23,6 +23,8 @@ interface NoteEntry {
   freq: number;
   beats: number;
 }
+
+type OscillatorType = 'square' | 'triangle' | 'sawtooth';
 
 class AudioService {
   private ctx: AudioContext | null = null;
@@ -211,12 +213,15 @@ class AudioService {
       loopStartTime += totalDuration;
     }
 
+    const leadType = def.leadType ?? 'square';
+    const bassType = def.bassType ?? 'triangle';
+
     let noteTime = loopStartTime;
     for (const note of def.lead) {
       const dur = note.beats * beatSec;
       const start = Math.max(noteTime, now + 0.005);
       if (note.freq > 0 && dur > 0 && start < noteTime + dur) {
-        this.scheduleLead(start, note.freq, (noteTime + dur - start) * 0.92);
+        this.scheduleLead(start, note.freq, (noteTime + dur - start) * 0.92, leadType);
       }
       noteTime += dur;
     }
@@ -226,7 +231,7 @@ class AudioService {
       const dur = note.beats * beatSec;
       const start = Math.max(noteTime, now + 0.005);
       if (note.freq > 0 && dur > 0 && start < noteTime + dur) {
-        this.scheduleBass(start, note.freq, (noteTime + dur - start) * 0.88);
+        this.scheduleBass(start, note.freq, (noteTime + dur - start) * 0.88, bassType);
       }
       noteTime += dur;
     }
@@ -240,11 +245,11 @@ class AudioService {
     }, delayMs);
   }
 
-  private scheduleLead(startTime: number, freq: number, duration: number): void {
+  private scheduleLead(startTime: number, freq: number, duration: number, type: OscillatorType = 'square'): void {
     if (!this.ctx || !this.musicGain) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'square';
+    osc.type = type;
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0, startTime);
     gain.gain.linearRampToValueAtTime(0.7, startTime + 0.01);
@@ -257,11 +262,11 @@ class AudioService {
     this.registerVoice(osc, gain);
   }
 
-  private scheduleBass(startTime: number, freq: number, duration: number): void {
+  private scheduleBass(startTime: number, freq: number, duration: number, type: OscillatorType = 'triangle'): void {
     if (!this.ctx || !this.musicGain) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'triangle';
+    osc.type = type;
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0, startTime);
     gain.gain.linearRampToValueAtTime(0.5, startTime + 0.02);
@@ -444,6 +449,8 @@ interface TrackDef {
   bpm: number;
   lead: NoteEntry[];
   bass: NoteEntry[];
+  leadType?: OscillatorType;
+  bassType?: OscillatorType;
 }
 
 function lead(...entries: Array<[string, number]>): NoteEntry[] {
@@ -514,6 +521,45 @@ const TRACKS: Record<TrackId, TrackDef> = {
       ['A2', 4], ['A2', 4], ['A2', 4], ['A2', 4],
       ['D2', 4], ['E2', 4], ['E2', 4], ['A2', 4]
     ),
+  },
+  hardcore: {
+    bpm: 180,
+    lead: lead(
+      ['E5', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['C5', 0.5], ['B4', 0.5],
+      ['A4', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      ['REST', 0.5], ['D5', 1], ['F5', 0.5], ['A5', 1], ['G5', 0.5], ['F5', 0.5],
+      ['E5', 1.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      ['E5', 2], ['C5', 2],
+      ['D5', 2], ['B4', 2],
+      ['C5', 2], ['A4', 2],
+      ['B4', 4],
+      ['E5', 2], ['C5', 2],
+      ['D5', 2], ['B4', 2],
+      ['C5', 1], ['E5', 1], ['A5', 2],
+      ['GS5', 4],
+      ['E5', 1], ['B4', 0.5], ['C5', 0.5], ['D5', 1], ['C5', 0.5], ['B4', 0.5],
+      ['A4', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['B4', 1.5], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['C5', 1], ['A4', 1], ['A4', 1], ['REST', 1],
+      ['REST', 0.5], ['D5', 1], ['F5', 0.5], ['A5', 1], ['G5', 0.5], ['F5', 0.5],
+      ['REST', 0.5], ['E5', 1], ['C5', 0.5], ['E5', 1], ['D5', 0.5], ['C5', 0.5],
+      ['REST', 0.5], ['B4', 1], ['C5', 0.5], ['D5', 1], ['E5', 1],
+      ['REST', 0.5], ['C5', 1], ['A4', 0.5], ['A4', 1], ['REST', 1]
+    ),
+    bass: bass(
+      ['A2', 4], ['A2', 4], ['A2', 4], ['A2', 4],
+      ['D2', 4], ['E2', 4], ['E2', 4], ['A2', 4],
+      ['A2', 4], ['D2', 4], ['B2', 4], ['A2', 4],
+      ['E2', 4], ['D2', 4], ['A2', 4], ['E2', 4],
+      ['A2', 4], ['A2', 4], ['A2', 4], ['A2', 4],
+      ['D2', 4], ['E2', 4], ['E2', 4], ['A2', 4]
+    ),
+    leadType: 'sawtooth',
+    bassType: 'square',
   },
 };
 

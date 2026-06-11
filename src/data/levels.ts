@@ -21,5 +21,14 @@ export const LEVELS: LevelDef[] = [
   { level: 10, speed: 200,  chaosInterval: 800,  scoreMultiplier: 10, backgroundColor: '#1a1a1a', maxScore: 50000 },
 ];
 
+export const HARDCORE_LEVEL: LevelDef = {
+  level: 11,
+  speed: 150,
+  chaosInterval: 1000,
+  scoreMultiplier: 10,
+  backgroundColor: '#1a0000',
+  maxScore: Infinity,
+};
+
 export const MAX_LEVEL = 10;
 export const LINES_PER_LEVEL = 10;

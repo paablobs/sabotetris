@@ -22,9 +22,12 @@ export class MainMenuScene extends ex.Scene {
     this.add(this.createVersion());
     this.add(this.createMuteButton());
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, 200, 50, 'PLAY', () => {
-      this.engine?.goToScene('game');
+      this.engine?.goToScene('game', { sceneActivationData: { mode: 'softcore' } });
     }));
-    this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 110, 200, 50, 'RANKING', () => {
+    this.add(this.createHardcoreButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100, 200, 50, 'HARDCORE', () => {
+      this.engine?.goToScene('game', { sceneActivationData: { mode: 'hardcore' } });
+    }));
+    this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 170, 200, 50, 'RANKING', () => {
       this.engine?.goToScene('ranking');
     }));
     this.adminBadgeActor = this.createAdminBadge();
@@ -32,7 +35,7 @@ export class MainMenuScene extends ex.Scene {
     this.add(this.adminBadgeActor);
   }
 
-  onActivate(_context: ex.SceneActivationContext<unknown>): void {
+  onActivate(): void {
     this.tapTimestamps = [];
     this.adminBadgeActor.graphics.visible = admin.isEnabled();
     audio.playMusic('menu');
@@ -266,6 +269,51 @@ export class MainMenuScene extends ex.Scene {
         ctx.strokeRect(0, 0, w, h);
 
         ctx.fillStyle = '#ddeeff';
+        ctx.font = '22px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, w / 2, h / 2 + 2);
+      },
+    });
+    actor.graphics.use(graphic);
+
+    actor.on('pointerup', () => {
+      audio.playSfx('click');
+      onClick();
+    });
+    actor.pointer.useGraphicsBounds = true;
+
+    return actor;
+  }
+
+  private createHardcoreButton(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    label: string,
+    onClick: () => void
+  ): ex.Actor {
+    const actor = new ex.Actor({
+      x,
+      y,
+      width: w,
+      height: h,
+      anchor: ex.Vector.Half,
+    });
+
+    const graphic = new ex.Canvas({
+      cache: true,
+      width: w,
+      height: h,
+      draw: (ctx) => {
+        ctx.fillStyle = '#1a0a0a';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#ff4d6d';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, w, h);
+
+        ctx.fillStyle = '#ff4d6d';
         ctx.font = '22px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

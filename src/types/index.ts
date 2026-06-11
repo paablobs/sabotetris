@@ -32,6 +32,7 @@ export interface ScoreEntry {
   score: number;
   level: number;
   date: string;
+  mode?: 'softcore' | 'hardcore';
 }
 
 export interface GameState {
@@ -44,6 +45,7 @@ export interface GameState {
   setNextPieceHidden(duration: number): void;
   forceNextPieceType(type: TetrominoType): void;
   shiftBoardUp(): void;
+  spawnSpaceInvader(): void;
 }
 
 export interface ChaosEffect {

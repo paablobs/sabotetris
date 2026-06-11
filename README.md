@@ -18,6 +18,15 @@ Sabotetris plays like standard Tetris, but a **Chaos Engine** periodically trigg
 
 Each level has a target score. Hit it and you'll be offered the choice to advance (with a clear board) or stay in the same level.
 
+### HARDCORE Mode
+
+A separate single-level mode for players who want maximum chaos. All 12 chaos effects are active from the start, plus two exclusive hardcore-only effects:
+
+- **DVD Bounce** — a classic bouncing DVD logo screen saver dances across the screen
+- **Space Invader** — an alien ship appears and shoots bullets that destroy existing blocks
+
+Chaos triggers randomly every 1–5 seconds. Hardcore scores are saved to the same ranking list with a **HARDCORE** tag in red.
+
 ## Controls
 
 ### Desktop
@@ -43,6 +52,8 @@ Detected automatically on touch devices with a coarse pointer. Keyboard and mous
 | Swipe down | Soft drop (one cell down) |
 | Double tap | Hard drop (slam down) |
 | Phone back button | Pause / Resume |
+
+Controls are the same in HARDCORE mode.
 
 After pausing, the on-screen CONTINUE / RESET LEVEL / HOME buttons (which work for both mouse and touch) handle the rest.
 

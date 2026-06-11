@@ -11,6 +11,7 @@ import { audio } from '../services/AudioService';
 export class GameOverScene extends ex.Scene {
   private score = 0;
   private level = 1;
+  private mode: 'softcore' | 'hardcore' = 'softcore';
   private playerName = '';
   private saved = false;
   private rankingService = new RankingService();
@@ -36,10 +37,11 @@ export class GameOverScene extends ex.Scene {
   }
 
   onActivate(context: ex.SceneActivationContext<unknown>): void {
-    const data = context.data as { score: number; level: number } | undefined;
+    const data = context.data as { score: number; level: number; mode?: 'softcore' | 'hardcore' } | undefined;
     if (data) {
       this.score = data.score;
       this.level = data.level;
+      this.mode = data.mode ?? 'softcore';
     }
     this.playerName = '';
     this.saved = false;
@@ -67,7 +69,7 @@ export class GameOverScene extends ex.Scene {
     ex.Input.Keys.Digit8, ex.Input.Keys.Digit9,
   ];
 
-  onPreUpdate(engine: ex.Engine, _delta: number): void {
+  onPreUpdate(engine: ex.Engine): void {
     const kb = engine.input.keyboard;
 
     if (kb.wasPressed(ex.Input.Keys.Escape)) {
@@ -145,6 +147,12 @@ export class GameOverScene extends ex.Scene {
     ctx.font = '18px monospace';
     ctx.fillText(`Level: ${this.level}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 35);
 
+    if (this.mode === 'hardcore') {
+      ctx.fillStyle = '#ff4d6d';
+      ctx.font = '14px monospace';
+      ctx.fillText('HARDCORE MODE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
+    }
+
     if (!this.saved) {
       ctx.fillStyle = '#667788';
       ctx.font = '14px monospace';
@@ -195,6 +203,7 @@ export class GameOverScene extends ex.Scene {
       score: this.score,
       level: this.level,
       date: new Date().toLocaleDateString(),
+      mode: this.mode,
     });
     this.saved = true;
     this.addClickHandler();

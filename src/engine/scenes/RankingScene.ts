@@ -66,7 +66,7 @@ export class RankingScene extends ex.Scene {
     this.add(backBtn);
   }
 
-  onActivate(_context: ex.SceneActivationContext<unknown>): void {
+  onActivate(): void {
     // Refresh data when scene becomes active
   }
 
@@ -108,7 +108,14 @@ export class RankingScene extends ex.Scene {
 
       ctx.textAlign = 'right';
       ctx.fillStyle = '#8899aa';
-      ctx.fillText(entry.score.toString().padStart(8), 330, y);
+      ctx.fillText(entry.score.toString().padStart(8), 280, y);
+
+      const mode = entry.mode ?? 'softcore';
+      ctx.fillStyle = mode === 'hardcore' ? '#ff4d6d' : '#ddeeff';
+      ctx.textAlign = 'right';
+      ctx.font = '9px monospace';
+      ctx.fillText(mode.toUpperCase(), 345, y);
+      ctx.font = '11px monospace';
 
       ctx.fillStyle = '#667788';
       ctx.textAlign = 'right';
