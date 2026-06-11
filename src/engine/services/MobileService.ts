@@ -7,12 +7,11 @@ import * as ex from 'excalibur';
  * media query. On desktop (no touch / fine pointer) the entire touch layer is
  * skipped, so keyboard and mouse behavior are unaffected.
  *
- * Gesture model (one finger = one discrete action):
- *   - Swipe left  -> move one cell left
- *   - Swipe right -> move one cell right
- *   - Swipe down  -> move one cell down (soft drop step)
- *   - Two-finger swipe (any direction) -> hard drop
- *   - Short tap on the current piece -> rotate
+ * Gesture model:
+ *   - Swipe left / right  -> move one cell
+ *   - Swipe up            -> rotate piece
+ *   - Swipe down          -> soft drop (one cell)
+ *   - Double tap          -> hard drop (slam down)
  *   - Pause is NOT triggered by any touch gesture; the phone's back
  *     button is wired to it from GameScene instead.
  */
@@ -50,10 +49,7 @@ interface ActiveTouch {
 const SWIPE_THRESHOLD = 32;
 const TAP_MAX_DURATION_MS = 300;
 const TAP_MAX_MOVE = 10;
-const BOARD_X = 20;
-const BOARD_Y = 30;
-const BOARD_WIDTH = 320;
-const BOARD_HEIGHT = 640;
+const DOUBLE_TAP_MS = 300;
 
 export class TouchInput {
   private readonly canvas: HTMLCanvasElement;
@@ -65,7 +61,7 @@ export class TouchInput {
   private onUp: ((e: PointerEvent) => void) | null = null;
   private onCancel: ((e: PointerEvent) => void) | null = null;
   private enabled = false;
-  private twoFingerFired = false;
+  private lastTapTime = 0;
 
   constructor(canvas: HTMLCanvasElement, engine: ex.Engine, callbacks: TouchInputCallbacks) {
     this.canvas = canvas;
@@ -95,13 +91,13 @@ export class TouchInput {
     if (this.onCancel) this.canvas.removeEventListener('pointercancel', this.onCancel);
     this.onDown = this.onMove = this.onUp = this.onCancel = null;
     this.touches.clear();
-    this.twoFingerFired = false;
+    this.lastTapTime = 0;
   }
 
   setBlocked(blocked: boolean): void {
     if (blocked) {
       this.touches.clear();
-      this.twoFingerFired = false;
+      this.lastTapTime = 0;
     }
   }
 
@@ -127,22 +123,19 @@ export class TouchInput {
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
 
-    // Two-finger swipe (any direction) -> hard drop, once per gesture.
-    if (this.touches.size >= 2 && (absDx > SWIPE_THRESHOLD || absDy > SWIPE_THRESHOLD)) {
-      if (!this.twoFingerFired) {
-        this.twoFingerFired = true;
-        this.callbacks.hardDrop();
-        t.firedSwipeOrDrop = true;
-        e.preventDefault();
-        for (const other of this.touches.values()) {
-          other.firedSwipeOrDrop = true;
-        }
-      }
-      return;
-    }
-
     // Single-finger swipes only fire while exactly one finger is down.
     if (this.touches.size !== 1) return;
+
+    if (dy < -SWIPE_THRESHOLD && absDy > absDx) {
+      t.firedSwipeOrDrop = true;
+      e.preventDefault();
+      const rect = this.canvas.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const worldPos = this.engine.screenToWorldCoordinates(new ex.Vector(screenX, screenY));
+      this.callbacks.rotate(worldPos.x, worldPos.y);
+      return;
+    }
 
     if (dy > SWIPE_THRESHOLD && absDy > absDx) {
       t.firedSwipeOrDrop = true;
@@ -164,10 +157,6 @@ export class TouchInput {
     const t = this.touches.get(e.pointerId);
     this.touches.delete(e.pointerId);
 
-    if (this.touches.size === 0) {
-      this.twoFingerFired = false;
-    }
-
     if (!t || t.firedSwipeOrDrop) return;
 
     const dt = performance.now() - t.startTime;
@@ -176,26 +165,17 @@ export class TouchInput {
     if (dt > TAP_MAX_DURATION_MS) return;
     if (totalDx > TAP_MAX_MOVE || totalDy > TAP_MAX_MOVE) return;
 
-    const rect = this.canvas.getBoundingClientRect();
-    const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top;
-    const worldPos = this.engine.screenToWorldCoordinates(new ex.Vector(screenX, screenY));
-    if (!this.isInsideBoard(worldPos.x, worldPos.y)) return;
-
-    this.callbacks.rotate(worldPos.x, worldPos.y);
+    const now = performance.now();
+    if (now - this.lastTapTime < DOUBLE_TAP_MS) {
+      this.callbacks.hardDrop();
+      this.lastTapTime = 0;
+    } else {
+      this.lastTapTime = now;
+    }
   }
 
   private fireMove(direction: -1 | 1): void {
     if (direction < 0) this.callbacks.moveLeft();
     else this.callbacks.moveRight();
-  }
-
-  private isInsideBoard(x: number, y: number): boolean {
-    return (
-      x >= BOARD_X &&
-      x < BOARD_X + BOARD_WIDTH &&
-      y >= BOARD_Y &&
-      y < BOARD_Y + BOARD_HEIGHT
-    );
   }
 }

@@ -38,11 +38,10 @@ Detected automatically on touch devices with a coarse pointer. Keyboard and mous
 
 | Gesture | Action |
 |---------|--------|
-| Swipe left | Move piece left |
-| Swipe right | Move piece right |
+| Swipe left / right | Move piece |
+| Swipe up | Rotate piece |
 | Swipe down | Soft drop (one cell down) |
-| Two-finger swipe (any direction) | Hard drop (slam down) |
-| Tap anywhere on the board | Rotate piece |
+| Double tap | Hard drop (slam down) |
 | Phone back button | Pause / Resume |
 
 After pausing, the on-screen CONTINUE / RESET LEVEL / HOME buttons (which work for both mouse and touch) handle the rest.

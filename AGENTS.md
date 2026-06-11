@@ -118,7 +118,8 @@ Both use `ex.Canvas` with `cache: false` for dynamic redraw every frame.
 - Uses `engine.screenToWorldCoordinates()` to map touch points to world
   coordinates when the canvas is scaled (FitScreenAndFill mode).
 - Gesture thresholds: `SWIPE_THRESHOLD = 32` px, `TAP_MAX_MOVE = 10` px,
-  `TAP_MAX_DURATION_MS = 300`.
+  `TAP_MAX_DURATION_MS = 300`, `DOUBLE_TAP_MS = 300`.
+- Swipe up → rotate. Swipe down → soft drop. Double tap → hard drop.
 - Pause is triggered by the **phone back button** (`popstate` listener), not
   a touch gesture.
 
