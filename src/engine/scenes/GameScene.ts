@@ -100,11 +100,9 @@ export class GameScene extends ex.Scene {
           if (this.ignoreInput) return;
           this.movePieceWithChecks(0, this.reverseInput ? -1 : 1);
         },
-        rotate: (cx, cy) => {
+        rotate: (_cx, _cy) => {
           if (this.ignoreInput) return;
-          if (this.isTapOnPiece(cx, cy)) {
-            this.rotatePieceWithChecks();
-          }
+          this.rotatePieceWithChecks();
         },
         softDrop: () => {
           if (this.ignoreInput) return;
