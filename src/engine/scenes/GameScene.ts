@@ -91,7 +91,7 @@ export class GameScene extends ex.Scene {
 
     if (isMobile) {
       const canvas = engine.canvas;
-      this.touchInput = new TouchInput(canvas, {
+      this.touchInput = new TouchInput(canvas, engine, {
         moveLeft: () => {
           if (this.ignoreInput) return;
           this.movePieceWithChecks(0, this.reverseInput ? 1 : -1);

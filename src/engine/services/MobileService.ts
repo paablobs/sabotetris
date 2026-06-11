@@ -1,3 +1,5 @@
+import * as ex from 'excalibur';
+
 /**
  * Mobile detection + touch gesture input for the GameScene.
  *
@@ -32,7 +34,7 @@ export const isMobile: boolean = (() => {
 export interface TouchInputCallbacks {
   moveLeft: () => void;
   moveRight: () => void;
-  rotate: (canvasX: number, canvasY: number) => void;
+  rotate: (worldX: number, worldY: number) => void;
   softDrop: () => void;
   hardDrop: () => void;
 }
@@ -55,6 +57,7 @@ const BOARD_HEIGHT = 640;
 
 export class TouchInput {
   private readonly canvas: HTMLCanvasElement;
+  private readonly engine: ex.Engine;
   private readonly callbacks: TouchInputCallbacks;
   private readonly touches = new Map<number, ActiveTouch>();
   private onDown: ((e: PointerEvent) => void) | null = null;
@@ -64,8 +67,9 @@ export class TouchInput {
   private enabled = false;
   private twoFingerFired = false;
 
-  constructor(canvas: HTMLCanvasElement, callbacks: TouchInputCallbacks) {
+  constructor(canvas: HTMLCanvasElement, engine: ex.Engine, callbacks: TouchInputCallbacks) {
     this.canvas = canvas;
+    this.engine = engine;
     this.callbacks = callbacks;
   }
 
@@ -171,10 +175,14 @@ export class TouchInput {
     const totalDy = Math.abs(e.clientY - t.startY);
     if (dt > TAP_MAX_DURATION_MS) return;
     if (totalDx > TAP_MAX_MOVE || totalDy > TAP_MAX_MOVE) return;
-    if (!this.isInsideBoard(e.clientX, e.clientY)) return;
 
-    const { x, y } = this.clientToCanvas(e.clientX, e.clientY);
-    this.callbacks.rotate(x, y);
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const worldPos = this.engine.screenToWorldCoordinates(new ex.Vector(screenX, screenY));
+    if (!this.isInsideBoard(worldPos.x, worldPos.y)) return;
+
+    this.callbacks.rotate(worldPos.x, worldPos.y);
   }
 
   private fireMove(direction: -1 | 1): void {
@@ -182,24 +190,12 @@ export class TouchInput {
     else this.callbacks.moveRight();
   }
 
-  private clientToCanvas(clientX: number, clientY: number): { x: number; y: number } {
-    const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    };
-  }
-
   private isInsideBoard(x: number, y: number): boolean {
-    const { x: lx, y: ly } = this.clientToCanvas(x, y);
     return (
-      lx >= BOARD_X &&
-      lx < BOARD_X + BOARD_WIDTH &&
-      ly >= BOARD_Y &&
-      ly < BOARD_Y + BOARD_HEIGHT
+      x >= BOARD_X &&
+      x < BOARD_X + BOARD_WIDTH &&
+      y >= BOARD_Y &&
+      y < BOARD_Y + BOARD_HEIGHT
     );
   }
 }
