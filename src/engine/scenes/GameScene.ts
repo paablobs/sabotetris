@@ -257,6 +257,7 @@ export class GameScene extends ex.Scene {
     }
     this.levelStartScore = 0;
     this.chaosEngine.setLevel(this.levelService.getLevel());
+    this.chaosEngine.setMode(this.mode);
     this.applyLevelVisuals();
 
     this.nextPieceType = this.randomPieceType();

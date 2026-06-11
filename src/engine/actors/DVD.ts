@@ -6,18 +6,18 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
  * Bounces across the entire screen and changes color on every wall hit.
  */
 export class DVDActor extends ex.Actor {
-  private vx = 120;
-  private vy = 80;
+  private vx = 180;
+  private vy = 130;
   private dvdColor = '#ff4d6d';
-  private halfW = 16;
-  private halfH = 8;
+  private halfW = 60;
+  private halfH = 34;
 
   constructor() {
     super({
       x: CANVAS_WIDTH / 2,
       y: CANVAS_HEIGHT / 2,
-      width: 32,
-      height: 16,
+      width: 120,
+      height: 68,
       anchor: ex.Vector.Half,
     });
   }
@@ -56,11 +56,19 @@ export class DVDActor extends ex.Actor {
     const c = this.dvdColor;
     const graphic = new ex.Canvas({
       cache: false,
-      width: 32,
-      height: 16,
+      width: 120,
+      height: 68,
       draw: (ctx) => {
         ctx.fillStyle = c;
-        ctx.fillRect(2, 2, 28, 12);
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 120, 68, 16);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('DVD', 60, 34);
       },
     });
     this.graphics.use(graphic);

@@ -17,19 +17,20 @@ import type { Grid } from '../../types';
 export class SpaceInvaderActor extends ex.Actor {
   private readonly grid: Grid;
   private direction = 1;
-  private speed = 60;
+  private speed = 80;
   private shotsFired = 0;
   private readonly maxShots = 5;
   private shotTimer = 0;
-  private readonly shotInterval = 2000;
+  private readonly shotInterval = 1500;
   private alive = true;
 
   constructor(grid: Grid) {
+    const startX = BOARD_X + 40 + Math.random() * (BOARD_WIDTH - 80);
     super({
-      x: BOARD_X + BOARD_WIDTH / 2,
-      y: BOARD_Y - 40,
-      width: 28,
-      height: 20,
+      x: startX,
+      y: BOARD_Y - 30,
+      width: 36,
+      height: 24,
       anchor: ex.Vector.Half,
     });
     this.grid = grid;
@@ -38,14 +39,16 @@ export class SpaceInvaderActor extends ex.Actor {
   onInitialize(): void {
     const graphic = new ex.Canvas({
       cache: false,
-      width: 28,
-      height: 20,
+      width: 36,
+      height: 24,
       draw: (ctx) => {
         ctx.fillStyle = '#ff4d6d';
-        ctx.fillRect(4, 0, 20, 12);
-        ctx.fillRect(0, 8, 28, 4);
-        ctx.fillRect(4, 12, 4, 8);
-        ctx.fillRect(20, 12, 4, 8);
+        ctx.fillRect(4, 0, 28, 14);
+        ctx.fillRect(0, 10, 36, 4);
+        ctx.fillRect(6, 14, 6, 10);
+        ctx.fillRect(24, 14, 6, 10);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(14, 4, 8, 6);
       },
     });
     this.graphics.use(graphic);
@@ -57,7 +60,7 @@ export class SpaceInvaderActor extends ex.Actor {
     const dt = delta / 1000;
     this.pos.x += this.direction * this.speed * dt;
 
-    if (this.pos.x <= BOARD_X + 14 || this.pos.x >= BOARD_X + BOARD_WIDTH - 14) {
+    if (this.pos.x <= BOARD_X + 18 || this.pos.x >= BOARD_X + BOARD_WIDTH - 18) {
       this.direction *= -1;
     }
 
@@ -75,14 +78,14 @@ export class SpaceInvaderActor extends ex.Actor {
 
   private fireBullet(): void {
     this.shotsFired++;
-    const bullet = new InvaderBullet(this.pos.x, this.pos.y + 20, this.grid);
+    const bullet = new InvaderBullet(this.pos.x, this.pos.y + 28, this.grid);
     this.scene?.add(bullet);
   }
 }
 
 class InvaderBullet extends ex.Actor {
   private readonly grid: Grid;
-  private speed = 200;
+  private speed = 300;
 
   constructor(x: number, y: number, grid: Grid) {
     super({
