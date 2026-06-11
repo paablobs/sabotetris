@@ -20,12 +20,7 @@ Each level has a target score. Hit it and you'll be offered the choice to advanc
 
 ### HARDCORE Mode
 
-A separate single-level mode for players who want maximum chaos. All 12 chaos effects are active from the start, plus two exclusive hardcore-only effects:
-
-- **DVD Bounce** — a classic bouncing DVD logo screen saver dances across the screen
-- **Space Invader** — an alien ship appears and shoots bullets that destroy existing blocks
-
-Chaos triggers randomly every 1–5 seconds. Hardcore scores are saved to the same ranking list with a **HARDCORE** tag in red.
+A separate single-level mode for players who want maximum chaos. Find out yourself what this is about.
 
 ## Controls
 

@@ -39,6 +39,7 @@ export class GameScene extends ex.Scene {
 
   private dropTimer = 0;
   private chaosAccum = 0;
+  private nextChaosInterval = 5;
   private gameOver = false;
   private paused = false;
   private softDropping = false;
@@ -244,6 +245,7 @@ export class GameScene extends ex.Scene {
     this.nextPieceHiddenTimer = 0;
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.nextChaosInterval = this.mode === 'hardcore' ? Math.random() * 4 + 1 : 5;
     this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.highestReachedLevel = 1;
@@ -292,9 +294,16 @@ export class GameScene extends ex.Scene {
     }
 
     this.chaosAccum += dt;
-    if (this.chaosAccum >= this.getChaosInterval()) {
+    const target = this.mode === 'hardcore' ? this.nextChaosInterval : this.getChaosInterval();
+    if (this.chaosAccum >= target) {
       this.triggerChaos();
+      if (this.mode === 'hardcore' && Math.random() < 0.35) {
+        this.triggerChaos();
+      }
       this.chaosAccum = 0;
+      if (this.mode === 'hardcore') {
+        this.nextChaosInterval = Math.random() * 4 + 1;
+      }
     }
 
     this.handleInput(_engine, delta);
