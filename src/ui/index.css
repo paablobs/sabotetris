@@ -30,14 +30,19 @@ html, body {
 
 #game-container canvas {
   display: block;
-  width: 100%;
-  max-width: 600px;
-  height: auto;
-  min-width: 0;
-  aspect-ratio: 540 / 700;
   image-rendering: pixelated;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+
+/* Desktop: cap the canvas and preserve aspect ratio */
+@media (min-width: 640px) {
+  #game-container canvas {
+    width: 100%;
+    height: auto;
+    max-width: 600px;
+    aspect-ratio: 540 / 700;
+  }
 }

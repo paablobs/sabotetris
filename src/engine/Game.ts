@@ -4,6 +4,7 @@ import { MainMenuScene } from './scenes/MainMenuScene';
 import { GameScene } from './scenes/GameScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { RankingScene } from './scenes/RankingScene';
+import { isMobile } from './services/MobileService';
 
 /**
  * SabotetrisGame is the main Excalibur Engine wrapper.
@@ -16,7 +17,7 @@ export class SabotetrisGame {
     this.engine = new ex.Engine({
       width: CANVAS_WIDTH,
       height: CANVAS_HEIGHT,
-      displayMode: ex.DisplayMode.Fixed,
+      displayMode: isMobile ? ex.DisplayMode.FitScreenAndFill : ex.DisplayMode.Fixed,
       backgroundColor: ex.Color.fromHex('#1a1a2e'),
       suppressPlayButton: true,
       antialiasing: false,
