@@ -39,10 +39,10 @@ interface ActiveTouch {
   repeatEligibleAt: number;
 }
 
-const SWIPE_THRESHOLD = 24;
+const SWIPE_THRESHOLD = 32;
 const TAP_MAX_DURATION_MS = 300;
 const TAP_MAX_MOVE = 10;
-const REPEAT_DELAY_MS = 140;
+const REPEAT_DELAY_MS = 220;
 const BOARD_X = 20;
 const BOARD_Y = 30;
 const BOARD_WIDTH = 320;
