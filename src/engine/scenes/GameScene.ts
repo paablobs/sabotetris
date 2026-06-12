@@ -798,8 +798,8 @@ export class GameScene extends ex.Scene {
     }
 
     this.checkLevelCompletion();
-    this.updateSidePanel();
     this.spawnPiece();
+    this.updateSidePanel();
   }
 
   private findCompletedRows(): number[] {
