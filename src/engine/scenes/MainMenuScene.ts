@@ -27,7 +27,7 @@ export class MainMenuScene extends ex.Scene {
     this.add(this.createHardcoreButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100, 200, 50, 'HARDCORE', () => {
       this.engine?.goToScene('game', { sceneActivationData: { mode: 'hardcore' } });
     }));
-    this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 170, 200, 50, 'RANKING', () => {
+    this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 160, 200, 50, 'RANKING', () => {
       this.engine?.goToScene('ranking');
     }));
     this.adminBadgeActor = this.createAdminBadge();
