@@ -787,7 +787,9 @@ export class GameScene extends ex.Scene {
       this.scoreService.addLines(rows.length);
       audio.playSfx('lineClear');
 
-      if (this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
+      this.checkLevelCompletion();
+
+      if (!this.levelCompleteShown && this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
         this.chaosEngine.setLevel(this.levelService.getLevel());
         this.applyLevelVisuals();
         this.levelStartScore = this.scoreService.getScore();
@@ -797,7 +799,6 @@ export class GameScene extends ex.Scene {
       }
     }
 
-    this.checkLevelCompletion();
     this.spawnPiece();
     this.updateSidePanel();
   }
