@@ -47,6 +47,7 @@ export class GameScene extends ex.Scene {
   private highestReachedLevel = 1;
   private levelCompleteShown = false;
   private levelStartScore = 0;
+  private levelStartLines = 0;
 
   private ignoreInput = false;
   private reverseInput = false;
@@ -258,6 +259,7 @@ export class GameScene extends ex.Scene {
       this.levelService.enableHardcoreMode();
     }
     this.levelStartScore = 0;
+    this.levelStartLines = 0;
     this.chaosEngine.setLevel(this.levelService.getLevel());
     this.chaosEngine.setMode(this.mode);
     this.applyLevelVisuals();
@@ -472,6 +474,7 @@ export class GameScene extends ex.Scene {
   private advanceToNextLevel(): void {
     this.levelService.advanceLevel();
     this.levelStartScore = this.scoreService.getScore();
+    this.levelStartLines = this.scoreService.getLinesCleared();
     this.highestReachedLevel = this.levelService.getLevel();
     this.chaosEngine.setLevel(this.levelService.getLevel());
     this.applyLevelVisuals();
@@ -513,6 +516,7 @@ export class GameScene extends ex.Scene {
     this.nextPieceHidden = false;
     this.nextPieceHiddenTimer = 0;
     this.levelStartScore = this.scoreService.getScore();
+    this.levelStartLines = this.scoreService.getLinesCleared();
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.sidePanel.setChaosEffect('', 0);
     this.sidePanel.setNextPieceHidden(false);
@@ -705,6 +709,7 @@ export class GameScene extends ex.Scene {
     this.nextPieceHidden = false;
     this.nextPieceHiddenTimer = 0;
     this.levelStartScore = this.scoreService.getScore();
+    this.levelStartLines = this.scoreService.getLinesCleared();
     this.levelCompleteShown = false;
     this.levelCompleteOverlayActor.graphics.visible = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
@@ -786,6 +791,7 @@ export class GameScene extends ex.Scene {
         this.chaosEngine.setLevel(this.levelService.getLevel());
         this.applyLevelVisuals();
         this.levelStartScore = this.scoreService.getScore();
+        this.levelStartLines = this.scoreService.getLinesCleared();
         this.highestReachedLevel = this.levelService.getLevel();
         audio.playSfx('levelUp');
       }
@@ -936,7 +942,7 @@ export class GameScene extends ex.Scene {
     this.sidePanel.setNextPiece(this.nextPieceType);
     this.sidePanel.setScore(this.scoreService.getScore() - this.levelStartScore);
     this.sidePanel.setLevel(this.levelService.getLevel());
-    this.sidePanel.setLines(this.scoreService.getLinesCleared());
+    this.sidePanel.setLines(this.scoreService.getLinesCleared() - this.levelStartLines);
     this.sidePanel.setMaxScore(this.levelService.getMaxScore());
   }
 
