@@ -8,13 +8,17 @@ import {
 } from '../services/AdminService';
 import { audio, drawMuteIcon } from '../services/AudioService';
 
+const TUTORIAL_STORAGE_KEY = 'sabotetris:seenTutorial';
+
 /**
- * MainMenuScene shows the game title and PLAY/RANKING buttons.
+ * MainMenuScene shows the game title and PLAY/RANKING/TUTORIAL buttons.
  * All UI is rendered as Excalibur actors with Canvas graphics.
  */
 export class MainMenuScene extends ex.Scene {
   private adminBadgeActor!: ex.Actor;
+  private tutorialOverlayActor!: ex.Actor;
   private tapTimestamps: number[] = [];
+  private tutorialOpen = false;
 
   onInitialize(): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
@@ -30,21 +34,34 @@ export class MainMenuScene extends ex.Scene {
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 160, 200, 50, 'RANKING', () => {
       this.engine?.goToScene('ranking');
     }));
+    this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 220, 200, 50, 'TUTORIAL', () => {
+      this.showTutorial();
+    }));
     this.adminBadgeActor = this.createAdminBadge();
     this.adminBadgeActor.graphics.visible = admin.isEnabled();
     this.add(this.adminBadgeActor);
+
+    this.tutorialOverlayActor = this.createTutorialOverlay();
+    this.tutorialOverlayActor.graphics.visible = false;
+    this.tutorialOverlayActor.z = 100;
+    this.add(this.tutorialOverlayActor);
   }
 
   onActivate(): void {
     this.tapTimestamps = [];
     this.adminBadgeActor.graphics.visible = admin.isEnabled();
     audio.playMusic('menu');
+    this.maybeShowTutorialFirstTime();
   }
 
   onPreUpdate(engine: ex.Engine): void {
     const kb = engine.input.keyboard;
     if (kb.wasPressed(ex.Input.Keys.M)) {
       audio.toggleMute();
+    }
+    if (this.tutorialOpen && kb.wasPressed(ex.Input.Keys.Escape)) {
+      this.hideTutorial();
+      return;
     }
     if (kb.wasPressed(ex.Input.Keys.L)) {
       const now = performance.now();
@@ -56,6 +73,145 @@ export class MainMenuScene extends ex.Scene {
         this.adminBadgeActor.graphics.visible = admin.isEnabled();
       }
     }
+  }
+
+  private maybeShowTutorialFirstTime(): void {
+    if (typeof localStorage === 'undefined') return;
+    const seen = localStorage.getItem(TUTORIAL_STORAGE_KEY);
+    if (!seen) {
+      this.showTutorial();
+    }
+  }
+
+  private showTutorial(): void {
+    this.tutorialOpen = true;
+    this.tutorialOverlayActor.graphics.visible = true;
+  }
+
+  private hideTutorial(): void {
+    this.tutorialOpen = false;
+    this.tutorialOverlayActor.graphics.visible = false;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+    }
+  }
+
+  private createTutorialOverlay(): ex.Actor {
+    const actor = new ex.Actor({
+      x: 0,
+      y: 0,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      anchor: ex.Vector.Zero,
+    });
+
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      draw: (ctx) => {
+        // Dark semi-transparent background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        const contentX = 30;
+        let y = 40;
+
+        // Title
+        ctx.fillStyle = '#ddeeff';
+        ctx.font = 'bold 28px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('HOW TO PLAY', CANVAS_WIDTH / 2, y);
+        y += 36;
+
+        // Helper to draw a section
+        const drawSection = (header: string, lines: string[]) => {
+          ctx.fillStyle = '#88cc88';
+          ctx.font = 'bold 14px monospace';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(header, contentX, y);
+          y += 20;
+          ctx.fillStyle = '#ddeeff';
+          ctx.font = '13px monospace';
+          for (const line of lines) {
+            ctx.fillText(line, contentX, y);
+            y += 18;
+          }
+          y += 8;
+        };
+
+        drawSection('OBJECTIVE', [
+          'Clear horizontal rows by filling them with tetromino pieces.',
+          'Each completed row earns points. The game ends when the board overflows.',
+        ]);
+
+        drawSection('THE SABOTAGE', [
+          'The pieces are alive! Every few seconds, a random chaos effect',
+          'sabotages your active piece. Higher levels = more frequent effects.',
+          'This is why pieces move on their own!',
+          'Effects: drifting, gravity surges, locked controls, phantom blocks, and more.',
+        ]);
+
+        drawSection('ADVANCING', [
+          'Each level has a target score. When you reach it, choose to',
+          'ADVANCE (harder level, fresh board) or STAY (keep playing for more points).',
+        ]);
+
+        drawSection('HARDCORE', [
+          'Extra hard mode — much faster, with additional chaos.',
+          'Not for the faint of heart!',
+        ]);
+
+        drawSection('KEYBOARD', [
+          '← / →  Move piece',
+          '↑       Rotate',
+          '↓       Soft drop',
+          'Space   Hard drop',
+          'Escape  Pause',
+        ]);
+
+        drawSection('MOBILE', [
+          'Swipe left / right  Move piece',
+          'Swipe up            Rotate',
+          'Swipe down          Soft drop',
+          'Double tap          Hard drop',
+          'Phone back button   Pause',
+        ]);
+
+        // BACK button
+        const bw = 200, bh = 44;
+        const bx = (CANVAS_WIDTH - bw) / 2;
+        const by = CANVAS_HEIGHT - 60;
+        ctx.fillStyle = '#1a2a3a';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = '#4a6a8a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = '#ddeeff';
+        ctx.font = '18px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('BACK', CANVAS_WIDTH / 2, by + bh / 2 + 2);
+      },
+    });
+    actor.graphics.use(graphic);
+
+    actor.on('pointerup', (evt) => {
+      if (!this.tutorialOpen) return;
+      const wp = evt.worldPos;
+      const bw = 200, bh = 44;
+      const bx = (CANVAS_WIDTH - bw) / 2;
+      const by = CANVAS_HEIGHT - 60;
+      if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by && wp.y <= by + bh) {
+        audio.playSfx('click');
+        this.hideTutorial();
+      }
+    });
+    actor.pointer.useGraphicsBounds = true;
+
+    return actor;
   }
 
   private createLogo(): ex.Actor {
