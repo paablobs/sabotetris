@@ -1,5 +1,5 @@
 import * as ex from 'excalibur';
-import { COLS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
+import { COLS, ROWS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import type { Grid, PieceState, TetrominoType, GameState } from '../../types';
 import { TETROMINOES, PIECE_TYPES } from '../../data/tetrominoes';
 import { LevelService } from '../services/LevelService';
@@ -917,7 +917,8 @@ export class GameScene extends ex.Scene {
 
   private lockPhantomCell(): void {
     const empties: Array<{ row: number; col: number }> = [];
-    for (let r = 0; r < this.grid.length; r++) {
+    const minRow = Math.floor(ROWS / 2);
+    for (let r = minRow; r < this.grid.length; r++) {
       for (let c = 0; c < this.grid[r].length; c++) {
         if (this.grid[r][c] === null) empties.push({ row: r, col: c });
       }

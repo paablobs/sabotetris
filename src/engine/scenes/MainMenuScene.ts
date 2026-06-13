@@ -49,6 +49,8 @@ export class MainMenuScene extends ex.Scene {
 
   onActivate(): void {
     this.tapTimestamps = [];
+    this.tutorialOpen = false;
+    this.tutorialOverlayActor.graphics.visible = false;
     this.adminBadgeActor.graphics.visible = admin.isEnabled();
     audio.playMusic('menu');
     this.maybeShowTutorialFirstTime();
@@ -200,6 +202,7 @@ export class MainMenuScene extends ex.Scene {
 
     actor.on('pointerup', (evt) => {
       if (!this.tutorialOpen) return;
+      evt.cancel();
       const wp = evt.worldPos;
       const bw = 200, bh = 44;
       const bx = (CANVAS_WIDTH - bw) / 2;
@@ -208,6 +211,9 @@ export class MainMenuScene extends ex.Scene {
         audio.playSfx('click');
         this.hideTutorial();
       }
+    });
+    actor.on('pointerdown', (evt) => {
+      if (this.tutorialOpen) evt.cancel();
     });
     actor.pointer.useGraphicsBounds = true;
 
