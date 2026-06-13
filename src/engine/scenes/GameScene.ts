@@ -789,7 +789,7 @@ export class GameScene extends ex.Scene {
 
       const scoreReachedTarget = (this.scoreService.getScore() - this.levelStartScore) >= this.levelService.getMaxScore();
 
-      if (!scoreReachedTarget && this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
+      if (scoreReachedTarget && this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
         this.chaosEngine.setLevel(this.levelService.getLevel());
         this.applyLevelVisuals();
         this.levelStartScore = this.scoreService.getScore();
