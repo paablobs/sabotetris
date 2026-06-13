@@ -3,7 +3,6 @@ import { COLS, ROWS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import type { Grid, PieceState, TetrominoType, GameState } from '../../types';
 import { TETROMINOES, PIECE_TYPES } from '../../data/tetrominoes';
 import { LevelService } from '../services/LevelService';
-import { MAX_LEVEL } from '../../data/levels';
 import { ScoreService } from '../services/ScoreService';
 import { ChaosEngine } from '../services/ChaosEngine';
 import {
@@ -45,7 +44,6 @@ export class GameScene extends ex.Scene {
   private softDropping = false;
 
   private highestReachedLevel = 1;
-  private levelCompleteShown = false;
   private levelStartScore = 0;
   private levelStartLines = 0;
 
@@ -60,7 +58,6 @@ export class GameScene extends ex.Scene {
   private keyRepeatDelay = this.KEY_REPEAT;
 
   private pauseOverlayActor!: ex.Actor;
-  private levelCompleteOverlayActor!: ex.Actor;
 
   private mode: 'softcore' | 'hardcore' = 'softcore';
   private dvdActor: DVDActor | null = null;
@@ -88,11 +85,6 @@ export class GameScene extends ex.Scene {
     this.pauseOverlayActor.graphics.visible = false;
     this.pauseOverlayActor.z = 100;
     this.add(this.pauseOverlayActor);
-
-    this.levelCompleteOverlayActor = this.createLevelCompleteOverlay();
-    this.levelCompleteOverlayActor.graphics.visible = false;
-    this.levelCompleteOverlayActor.z = 100;
-    this.add(this.levelCompleteOverlayActor);
 
     this.add(this.createMuteButton());
 
@@ -151,7 +143,8 @@ export class GameScene extends ex.Scene {
   }
 
   private applyLevelVisuals(): void {
-    const color = this.levelService.getBackgroundColor();
+    const levelScore = this.scoreService.getScore() - this.levelStartScore;
+    const color = this.levelService.getBackgroundColorForScore(levelScore);
     this.backgroundSetColor(color);
     this.boardActor.setBackgroundColor(color);
   }
@@ -250,8 +243,6 @@ export class GameScene extends ex.Scene {
     this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.highestReachedLevel = 1;
-    this.levelCompleteShown = false;
-    this.levelCompleteOverlayActor.graphics.visible = false;
 
     this.scoreService.reset();
     this.levelService.reset();
@@ -277,13 +268,11 @@ export class GameScene extends ex.Scene {
       return;
     }
 
-    this.touchInput?.setBlocked(this.paused || this.levelCompleteShown);
+    this.touchInput?.setBlocked(this.paused);
 
-    if (!this.levelCompleteShown) {
-      this.handlePauseToggle(_engine);
-    }
+    this.handlePauseToggle(_engine);
 
-    if (this.paused || this.levelCompleteShown) return;
+    if (this.paused) return;
 
     this.updateTimedEffects(delta);
 
@@ -311,6 +300,8 @@ export class GameScene extends ex.Scene {
     }
 
     this.handleInput(_engine, delta);
+    this.applyLevelVisuals();
+    this.updateSidePanel();
 
     this.updateBoardDisplay();
     this.sidePanel.updateChaosTimer(delta);
@@ -381,168 +372,11 @@ export class GameScene extends ex.Scene {
   }
 
   private togglePauseFromTouch(): void {
-    if (this.gameOver || this.levelCompleteShown) return;
+    if (this.gameOver) return;
     this.paused = !this.paused;
     this.pauseOverlayActor.graphics.visible = this.paused;
     if (this.paused) audio.pauseMusic();
     else audio.resumeMusic();
-  }
-
-  private createLevelCompleteOverlay(): ex.Actor {
-    const overlay = new ex.Actor({
-      x: 0,
-      y: 0,
-      width: CANVAS_WIDTH,
-      height: CANVAS_HEIGHT,
-      anchor: ex.Vector.Zero,
-    });
-
-    const graphic = new ex.Canvas({
-      cache: false,
-      width: CANVAS_WIDTH,
-      height: CANVAS_HEIGHT,
-      draw: (ctx) => {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-        ctx.fillStyle = '#88cc88';
-        ctx.font = '44px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('LEVEL COMPLETE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 130);
-
-        ctx.fillStyle = '#ddeeff';
-        ctx.font = '20px monospace';
-        ctx.fillText(
-          `You beat Level ${this.levelService.getLevel()}`,
-          CANVAS_WIDTH / 2,
-          CANVAS_HEIGHT / 2 - 80
-        );
-
-        const bw = 240, bh = 50;
-        const bx = (CANVAS_WIDTH - bw) / 2;
-        const by1 = CANVAS_HEIGHT / 2 - 20;
-        const by2 = CANVAS_HEIGHT / 2 + 50;
-
-        ctx.fillStyle = '#1a3a2a';
-        ctx.fillRect(bx, by1, bw, bh);
-        ctx.strokeStyle = '#5a9a6a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, by1, bw, bh);
-        ctx.fillStyle = '#ddeeff';
-        ctx.font = '20px monospace';
-        ctx.fillText('ADVANCE', CANVAS_WIDTH / 2, by1 + bh / 2 + 2);
-
-        ctx.fillStyle = '#1a2a3a';
-        ctx.fillRect(bx, by2, bw, bh);
-        ctx.strokeStyle = '#4a6a8a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, by2, bw, bh);
-        ctx.fillStyle = '#ddeeff';
-        ctx.fillText('STAY', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
-      },
-    });
-    overlay.graphics.use(graphic);
-
-    overlay.on('pointerup', (evt) => {
-      if (!this.levelCompleteShown) return;
-      const wp = evt.worldPos;
-      const bw = 240, bh = 50;
-      const bx = (CANVAS_WIDTH - bw) / 2;
-      const by1 = CANVAS_HEIGHT / 2 - 20;
-      const by2 = CANVAS_HEIGHT / 2 + 50;
-
-      if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by1 && wp.y <= by1 + bh) {
-        audio.playSfx('click');
-        this.advanceToNextLevel();
-      } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by2 && wp.y <= by2 + bh) {
-        audio.playSfx('click');
-        this.stayOnLevel();
-      }
-    });
-    overlay.pointer.useGraphicsBounds = true;
-
-    return overlay;
-  }
-
-  private showLevelComplete(): void {
-    this.levelCompleteShown = true;
-    this.levelCompleteOverlayActor.graphics.visible = true;
-  }
-
-  private advanceToNextLevel(): void {
-    audio.playSfx('levelUp');
-    this.levelService.advanceLevel();
-    this.levelStartScore = this.scoreService.getScore();
-    this.levelStartLines = this.scoreService.getLinesCleared();
-    this.highestReachedLevel = this.levelService.getLevel();
-    this.chaosEngine.setLevel(this.levelService.getLevel());
-    this.applyLevelVisuals();
-    this.grid = createEmptyGrid();
-    this.dropTimer = 0;
-    this.chaosAccum = 0;
-    this.nextChaosInterval = this.getChaosInterval();
-    this.softDropping = false;
-    this.ignoreInput = false;
-    this.reverseInput = false;
-    this.ignoreTimer = 0;
-    this.reverseTimer = 0;
-    this.nextPieceHidden = false;
-    this.nextPieceHiddenTimer = 0;
-    this.keyRepeatDelay = this.KEY_REPEAT;
-    this.sidePanel.setChaosEffect('', 0);
-    this.sidePanel.setNextPieceHidden(false);
-    this.levelCompleteOverlayActor.graphics.visible = false;
-    this.levelCompleteShown = false;
-    this.nextPieceType = this.randomPieceType();
-    this.spawnPiece();
-    this.updateSidePanel();
-    this.updateBoardDisplay();
-  }
-
-  private stayOnLevel(): void {
-    this.levelCompleteOverlayActor.graphics.visible = false;
-    this.levelCompleteShown = false;
-  }
-
-  private resetCurrentLevel(): void {
-    this.grid = createEmptyGrid();
-    this.dropTimer = 0;
-    this.chaosAccum = 0;
-    this.nextChaosInterval = this.getChaosInterval();
-    this.softDropping = false;
-    this.ignoreInput = false;
-    this.reverseInput = false;
-    this.ignoreTimer = 0;
-    this.reverseTimer = 0;
-    this.nextPieceHidden = false;
-    this.nextPieceHiddenTimer = 0;
-    this.levelStartScore = this.scoreService.getScore();
-    this.levelStartLines = this.scoreService.getLinesCleared();
-    this.keyRepeatDelay = this.KEY_REPEAT;
-    this.sidePanel.setChaosEffect('', 0);
-    this.sidePanel.setNextPieceHidden(false);
-    this.nextPieceType = this.randomPieceType();
-    this.spawnPiece();
-    this.updateSidePanel();
-    this.updateBoardDisplay();
-  }
-
-  private checkLevelCompletion(): void {
-    if (this.mode === 'hardcore') return;
-    const levelScore = this.scoreService.getScore() - this.levelStartScore;
-    const lvl = this.levelService.getLevel();
-    if (levelScore >= this.levelService.getMaxScore() && lvl > this.highestReachedLevel) {
-      this.highestReachedLevel = lvl;
-    }
-    if (
-      this.levelCompleteShown === false &&
-      this.gameOver === false &&
-      levelScore >= this.levelService.getMaxScore() &&
-      lvl < MAX_LEVEL
-    ) {
-      this.showLevelComplete();
-    }
   }
 
   private createPauseOverlay(): ex.Actor {
@@ -589,7 +423,7 @@ export class GameScene extends ex.Scene {
         ctx.lineWidth = 2;
         ctx.strokeRect(bx, by2, bw, bh);
         ctx.fillStyle = '#ddeeff';
-        ctx.fillText('RESET LEVEL', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
+        ctx.fillText('RESET', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
 
         ctx.fillStyle = '#1a2a3a';
         ctx.fillRect(bx, by3, bw, bh);
@@ -621,7 +455,7 @@ export class GameScene extends ex.Scene {
         this.paused = false;
         this.pauseOverlayActor.graphics.visible = false;
         audio.resumeMusic();
-        this.resetCurrentLevel();
+        this.resetGame();
       } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by3 && wp.y <= by3 + bh) {
         audio.playSfx('click');
         this.paused = false;
@@ -677,54 +511,13 @@ export class GameScene extends ex.Scene {
 
   private handleAdminInput(kb: ex.Input.Keyboard): void {
     if (!admin.isEnabled()) return;
-    if (this.paused || this.levelCompleteShown || this.gameOver) return;
+    if (this.paused || this.gameOver) return;
 
     if (kb.wasPressed(ex.Input.Keys.BracketRight)) {
-      this.adminJumpToLevel(this.levelService.getLevel() + 1);
+      this.scoreService.addScore(1000);
     } else if (kb.wasPressed(ex.Input.Keys.BracketLeft)) {
-      this.adminJumpToLevel(this.levelService.getLevel() - 1);
-    } else {
-      for (let n = 1; n <= 9; n++) {
-        const digitKey = ex.Input.Keys[`Digit${n}` as keyof typeof ex.Input.Keys];
-        if (kb.wasPressed(digitKey)) {
-          this.adminJumpToLevel(n);
-          break;
-        }
-      }
-      if (kb.wasPressed(ex.Input.Keys.Digit0)) {
-        this.adminJumpToLevel(10);
-      }
+      this.scoreService.addScore(1000);
     }
-  }
-
-  private adminJumpToLevel(target: number): void {
-    const clamped = Math.max(1, Math.min(MAX_LEVEL, target));
-    if (clamped === this.levelService.getLevel()) return;
-    this.levelService.setLevel(clamped);
-    this.chaosEngine.setLevel(this.levelService.getLevel());
-    this.grid = createEmptyGrid();
-    this.dropTimer = 0;
-    this.chaosAccum = 0;
-    this.nextChaosInterval = this.getChaosInterval();
-    this.softDropping = false;
-    this.ignoreInput = false;
-    this.reverseInput = false;
-    this.ignoreTimer = 0;
-    this.reverseTimer = 0;
-    this.nextPieceHidden = false;
-    this.nextPieceHiddenTimer = 0;
-    this.levelStartScore = this.scoreService.getScore();
-    this.levelStartLines = this.scoreService.getLinesCleared();
-    this.levelCompleteShown = false;
-    this.levelCompleteOverlayActor.graphics.visible = false;
-    this.keyRepeatDelay = this.KEY_REPEAT;
-    this.sidePanel.setChaosEffect('', 0);
-    this.sidePanel.setNextPieceHidden(false);
-    this.applyLevelVisuals();
-    this.nextPieceType = this.randomPieceType();
-    this.spawnPiece();
-    this.updateSidePanel();
-    this.updateBoardDisplay();
   }
 
   private movePieceWithChecks(dRow: number, dCol: number): boolean {
@@ -791,20 +584,19 @@ export class GameScene extends ex.Scene {
       this.scoreService.addScore(lineScore);
       this.scoreService.addLines(rows.length);
       audio.playSfx('lineClear');
-
-      const scoreReachedTarget = (this.scoreService.getScore() - this.levelStartScore) >= this.levelService.getMaxScore();
-
-      if (scoreReachedTarget && this.levelService.updateLevel(this.scoreService.getLinesCleared())) {
-        this.chaosEngine.setLevel(this.levelService.getLevel());
-        this.applyLevelVisuals();
-        this.levelStartScore = this.scoreService.getScore();
-        this.levelStartLines = this.scoreService.getLinesCleared();
-        this.highestReachedLevel = this.levelService.getLevel();
-        audio.playSfx('levelUp');
-      }
     }
 
-    this.checkLevelCompletion();
+    const levelScore = this.scoreService.getScore() - this.levelStartScore;
+    if (levelScore >= this.levelService.getMaxScore()) {
+      this.levelService.advanceLevel();
+      this.chaosEngine.setLevel(this.levelService.getLevel());
+      this.applyLevelVisuals();
+      this.levelStartScore = this.scoreService.getScore();
+      this.levelStartLines = this.scoreService.getLinesCleared();
+      this.highestReachedLevel = this.levelService.getLevel();
+      audio.playSfx('levelUp');
+    }
+
     this.spawnPiece();
     this.updateSidePanel();
   }

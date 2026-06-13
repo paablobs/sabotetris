@@ -1,9 +1,9 @@
-import { LEVELS, MAX_LEVEL, LINES_PER_LEVEL, HARDCORE_LEVEL } from '../../data/levels';
+import { LEVELS, MAX_LEVEL, HARDCORE_LEVEL } from '../../data/levels';
 import type { LevelDef } from '../../types';
 
 /**
  * LevelService tracks current level and provides level-specific configuration.
- * Level advances every 10 lines cleared, up to level 10.
+ * Level advances when the score target for the current level is reached.
  */
 export class LevelService {
   private level = 1;
@@ -46,6 +46,33 @@ export class LevelService {
     return this.getLevelDef().backgroundColor;
   }
 
+  getBackgroundColorForScore(score: number): string {
+    if (this.hardcoreMode) return HARDCORE_LEVEL.backgroundColor;
+    if (this.level >= MAX_LEVEL) return LEVELS[MAX_LEVEL - 1].backgroundColor;
+
+    const currentDef = LEVELS[this.level - 1];
+    const nextDef = LEVELS[this.level];
+    const progress = Math.min(score / currentDef.maxScore, 1);
+
+    return this.interpolateHex(currentDef.backgroundColor, nextDef.backgroundColor, progress);
+  }
+
+  private interpolateHex(color1: string, color2: string, factor: number): string {
+    const r1 = parseInt(color1.substring(1, 3), 16);
+    const g1 = parseInt(color1.substring(3, 5), 16);
+    const b1 = parseInt(color1.substring(5, 7), 16);
+    const r2 = parseInt(color2.substring(1, 3), 16);
+    const g2 = parseInt(color2.substring(3, 5), 16);
+    const b2 = parseInt(color2.substring(5, 7), 16);
+
+    const r = Math.round(r1 + (r2 - r1) * factor);
+    const g = Math.round(g1 + (g2 - g1) * factor);
+    const b = Math.round(b1 + (b2 - b1) * factor);
+
+    const toHex = (n: number) => n.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
   advanceLevel(): boolean {
     if (this.hardcoreMode) return false;
     if (this.level >= MAX_LEVEL) return false;
@@ -55,22 +82,6 @@ export class LevelService {
 
   setLevel(level: number): void {
     this.level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-  }
-
-  /**
-   * Check if the level should advance based on total lines cleared.
-   * Only moves the level forward — a manual advance (e.g. via the
-   * score-target UI) can never be undone by an auto-advance call.
-   * Returns true if level changed.
-   */
-  updateLevel(linesCleared: number): boolean {
-    if (this.hardcoreMode) return false;
-    const newLevel = Math.min(MAX_LEVEL, Math.floor(linesCleared / LINES_PER_LEVEL) + 1);
-    if (newLevel > this.level) {
-      this.level = newLevel;
-      return true;
-    }
-    return false;
   }
 
   reset(): void {
