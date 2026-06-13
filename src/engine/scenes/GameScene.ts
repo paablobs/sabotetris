@@ -246,7 +246,7 @@ export class GameScene extends ex.Scene {
     this.nextPieceHiddenTimer = 0;
     this.dropTimer = 0;
     this.chaosAccum = 0;
-    this.nextChaosInterval = this.mode === 'hardcore' ? Math.random() * 4 + 1 : 5;
+    this.nextChaosInterval = this.mode === 'hardcore' ? Math.random() * 4 + 1 : this.getChaosInterval();
     this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.highestReachedLevel = 1;
@@ -298,7 +298,9 @@ export class GameScene extends ex.Scene {
     this.chaosAccum += dt;
     const target = this.mode === 'hardcore' ? this.nextChaosInterval : this.getChaosInterval();
     if (this.chaosAccum >= target) {
-      this.triggerChaos();
+      if (this.mode === 'hardcore' || Math.random() < 0.65) {
+        this.triggerChaos();
+      }
       if (this.mode === 'hardcore' && Math.random() < 0.35) {
         this.triggerChaos();
       }
@@ -315,14 +317,11 @@ export class GameScene extends ex.Scene {
   }
 
   private getDropInterval(): number {
-    return Math.max(0.1, 0.8 - (this.levelService.getLevel() - 1) * 0.07);
+    return Math.max(0.08, 0.7 - (this.levelService.getLevel() - 1) * 0.09);
   }
 
   private getChaosInterval(): number {
-    if (this.mode === 'hardcore') {
-      return Math.random() * 4 + 1;
-    }
-    return Math.max(0.8, 5 - (this.levelService.getLevel() - 1) * 0.45);
+    return Math.max(5, Math.random() * 10);
   }
 
   private initChaosEngine(): void {
@@ -481,6 +480,7 @@ export class GameScene extends ex.Scene {
     this.grid = createEmptyGrid();
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.nextChaosInterval = this.getChaosInterval();
     this.softDropping = false;
     this.ignoreInput = false;
     this.reverseInput = false;
@@ -508,6 +508,7 @@ export class GameScene extends ex.Scene {
     this.grid = createEmptyGrid();
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.nextChaosInterval = this.getChaosInterval();
     this.softDropping = false;
     this.ignoreInput = false;
     this.reverseInput = false;
@@ -701,6 +702,7 @@ export class GameScene extends ex.Scene {
     this.grid = createEmptyGrid();
     this.dropTimer = 0;
     this.chaosAccum = 0;
+    this.nextChaosInterval = this.getChaosInterval();
     this.softDropping = false;
     this.ignoreInput = false;
     this.reverseInput = false;
