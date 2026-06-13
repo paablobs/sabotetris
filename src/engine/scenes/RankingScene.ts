@@ -66,10 +66,6 @@ export class RankingScene extends ex.Scene {
     this.add(backBtn);
   }
 
-  onActivate(): void {
-    // Refresh data when scene becomes active
-  }
-
   private drawOverlay(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);

@@ -4,28 +4,18 @@
  */
 class AdminService {
   private _enabled = false;
-  private listeners: Array<(enabled: boolean) => void> = [];
 
   isEnabled(): boolean {
     return this._enabled;
   }
 
   setEnabled(enabled: boolean): void {
-    if (this._enabled === enabled) return;
     this._enabled = enabled;
-    for (const fn of this.listeners) fn(enabled);
   }
 
   toggle(): boolean {
-    this.setEnabled(!this._enabled);
+    this._enabled = !this._enabled;
     return this._enabled;
-  }
-
-  onChange(fn: (enabled: boolean) => void): () => void {
-    this.listeners.push(fn);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== fn);
-    };
   }
 }
 

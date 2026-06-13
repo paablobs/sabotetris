@@ -34,11 +34,9 @@ export class ChaosEngine {
     this.mode = mode;
     if (mode === 'hardcore') {
       this.effects.push({ minLevel: 1, effect: new SpaceInvaderEffect() });
+    } else {
+      this.effects = this.effects.filter(e => !(e.effect instanceof SpaceInvaderEffect));
     }
-  }
-
-  getInterval(): number {
-    return Math.max(800, 5000 - (this.level - 1) * 450);
   }
 
   /**

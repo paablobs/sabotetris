@@ -317,11 +317,11 @@ export class GameScene extends ex.Scene {
   }
 
   private getDropInterval(): number {
-    return Math.max(0.08, 0.7 - (this.levelService.getLevel() - 1) * 0.09);
+    return this.levelService.getSpeed() / 1000;
   }
 
   private getChaosInterval(): number {
-    return Math.max(5, Math.random() * 10);
+    return this.levelService.getChaosInterval() / 1000;
   }
 
   private initChaosEngine(): void {
@@ -471,6 +471,7 @@ export class GameScene extends ex.Scene {
   }
 
   private advanceToNextLevel(): void {
+    audio.playSfx('levelUp');
     this.levelService.advanceLevel();
     this.levelStartScore = this.scoreService.getScore();
     this.levelStartLines = this.scoreService.getLinesCleared();
@@ -634,6 +635,8 @@ export class GameScene extends ex.Scene {
   }
 
   private handleInput(engine: ex.Engine, delta: number): void {
+    if (this.gameOver) return;
+
     const kb = engine.input.keyboard;
 
     this.keyRepeatDelay -= delta;
@@ -822,7 +825,7 @@ export class GameScene extends ex.Scene {
     for (let y = this.grid.length - 1; y >= 0; y--) {
       if (!flags[y]) {
         if (writeY !== y) {
-          this.grid[writeY] = this.grid[y];
+          this.grid[writeY] = [...this.grid[y]];
         }
         writeY--;
       }
@@ -834,7 +837,7 @@ export class GameScene extends ex.Scene {
 
   private getLineClearScore(count: number): number {
     const lineScores = [0, 40, 100, 300, 1200];
-    return lineScores[Math.min(count, 4)] * this.levelService.getLevel();
+    return lineScores[Math.min(count, 4)] * this.levelService.getScoreMultiplier();
   }
 
   private hardDrop(): void {
@@ -925,12 +928,14 @@ export class GameScene extends ex.Scene {
   }
 
   private shiftBoardUp(): void {
-    if (this.grid[0].every(c => c === null)) {
-      for (let r = 0; r < this.grid.length - 1; r++) {
-        this.grid[r] = this.grid[r + 1];
-      }
-      this.grid[this.grid.length - 1] = Array(COLS).fill(null);
+    for (let r = 0; r < this.grid.length - 1; r++) {
+      this.grid[r] = [...this.grid[r + 1]];
     }
+    const garbageRow: (string | null)[] = [];
+    for (let c = 0; c < COLS; c++) {
+      garbageRow.push(Math.random() < 0.3 ? '#556666' : null);
+    }
+    this.grid[this.grid.length - 1] = garbageRow;
   }
 
   private spawnSpaceInvader(): void {

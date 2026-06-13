@@ -62,39 +62,6 @@ export function lockPiece(grid: Grid, shape: number[][], row: number, col: numbe
 }
 
 /**
- * Check for and clear completed lines.
- * Returns the number of lines cleared.
- */
-export function clearLines(grid: Grid): number {
-  let cleared = 0;
-  for (let row = ROWS - 1; row >= 0; row--) {
-    if (grid[row].every(cell => cell !== null)) {
-      grid.splice(row, 1);
-      grid.unshift(Array<CellColor>(COLS).fill(null));
-      cleared++;
-      row++;
-    }
-  }
-  return cleared;
-}
-
-/**
- * Calculate score for clearing lines.
- */
-export function getLineClearScore(linesCleared: number, level: number): number {
-  const baseScores = [0, 100, 300, 500, 800];
-  const base = linesCleared < baseScores.length ? baseScores[linesCleared] : 800;
-  return base * level;
-}
-
-/**
- * Calculate score for placing a piece.
- */
-export function getPlacementScore(level: number): number {
-  return 10 * level;
-}
-
-/**
  * Get a random integer between min (inclusive) and max (inclusive).
  */
 export function randomInt(min: number, max: number): number {

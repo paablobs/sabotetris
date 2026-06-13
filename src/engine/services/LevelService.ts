@@ -21,10 +21,6 @@ export class LevelService {
     this.hardcoreMode = true;
   }
 
-  disableHardcoreMode(): void {
-    this.hardcoreMode = false;
-  }
-
   getLevelDef(): LevelDef {
     if (this.hardcoreMode) return HARDCORE_LEVEL;
     return LEVELS[this.level - 1] || LEVELS[MAX_LEVEL - 1];
