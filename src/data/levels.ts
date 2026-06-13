@@ -23,8 +23,8 @@ export const LEVELS: LevelDef[] = [
 
 export const HARDCORE_LEVEL: LevelDef = {
   level: 11,
-  speed: 150,
-  chaosInterval: 1000,
+  speed: 80,
+  chaosInterval: 2000,
   scoreMultiplier: 10,
   backgroundColor: '#1a0000',
   maxScore: Infinity,
