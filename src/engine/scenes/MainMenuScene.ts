@@ -146,19 +146,20 @@ export class MainMenuScene extends ex.Scene {
 
         drawSection('OBJECTIVE', [
           'Clear horizontal rows by filling them with tetromino pieces.',
-          'Each completed row earns points. The game ends when the board overflows.',
+          'Each completed row earns points.',
+          'The game ends when the board overflows.',
         ]);
 
         drawSection('THE SABOTAGE', [
           'The pieces are alive! Every few seconds, a random chaos effect',
-          'sabotages your active piece. Higher levels = more frequent effects.',
-          'This is why pieces move on their own!',
-          'Effects: drifting, gravity surges, locked controls, phantom blocks, and more.',
+          'sabotages your active piece.',
+          'Higher levels = more frequent effects.',
         ]);
 
         drawSection('ADVANCING', [
-          'Each level has a target score. When you reach it, choose to',
-          'ADVANCE (harder level, fresh board) or STAY (keep playing for more points).',
+          'Each level has a target score shown in the side panel.',
+          'Reach it to advance automatically to a harder level with', 
+          'a fresh board.',
         ]);
 
         drawSection('HARDCORE', [
