@@ -33,7 +33,9 @@ export class ChaosEngine {
     if (this.mode === mode) return;
     this.mode = mode;
     if (mode === 'hardcore') {
-      this.effects.push({ minLevel: 1, effect: new SpaceInvaderEffect() });
+      if (!this.effects.some(e => e.effect instanceof SpaceInvaderEffect)) {
+        this.effects.push({ minLevel: 1, effect: new SpaceInvaderEffect() });
+      }
     } else {
       this.effects = this.effects.filter(e => !(e.effect instanceof SpaceInvaderEffect));
     }
@@ -61,13 +63,13 @@ export class ChaosEngine {
   private registerDefaultEffects(): void {
     this.effects = [
       { minLevel: 1, effect: new PanicDropEffect() },
-      { minLevel: 1, effect: new LockedControlsEffect(1) },
+      { minLevel: 1, effect: new LockedControlsEffect() },
       { minLevel: 1, effect: new MagneticDriftEffect() },
       { minLevel: 2, effect: new GreasedGripEffect() },
       { minLevel: 3, effect: new SlipperyFingersEffect() },
       { minLevel: 4, effect: new SpinningOutEffect() },
-      { minLevel: 5, effect: new GravitySurgeEffect(5) },
-      { minLevel: 6, effect: new ReversePolarityEffect(6) },
+      { minLevel: 5, effect: new GravitySurgeEffect() },
+      { minLevel: 6, effect: new ReversePolarityEffect() },
       { minLevel: 7, effect: new PhantomLockEffect() },
       { minLevel: 8, effect: new ColorBlindEffect() },
       { minLevel: 9, effect: new FamineEffect() },
@@ -106,14 +108,10 @@ class SpinningOutEffect implements ChaosEffect {
 class GravitySurgeEffect implements ChaosEffect {
   readonly name = 'Gravity Surge';
   readonly description = 'Piece accelerates down!';
-  private intensity: number;
-
-  constructor(level: number) {
-    this.intensity = Math.min(5, 1 + Math.floor(level / 2));
-  }
 
   execute(state: GameState): void {
-    for (let i = 0; i < this.intensity; i++) {
+    const intensity = Math.min(5, 1 + Math.floor(state.getLevel() / 2));
+    for (let i = 0; i < intensity; i++) {
       if (!state.movePiece(1, 0)) break;
     }
   }
@@ -122,28 +120,20 @@ class GravitySurgeEffect implements ChaosEffect {
 class LockedControlsEffect implements ChaosEffect {
   readonly name = 'Locked Controls';
   readonly description = 'Input locked!';
-  private duration: number;
-
-  constructor(level: number) {
-    this.duration = Math.min(3000, 1500 + level * 150);
-  }
 
   execute(state: GameState): void {
-    state.setIgnoreInput(this.duration);
+    const duration = Math.min(3000, 1500 + state.getLevel() * 150);
+    state.setIgnoreInput(duration);
   }
 }
 
 class ReversePolarityEffect implements ChaosEffect {
   readonly name = 'Reverse Polarity';
   readonly description = 'Controls reversed!';
-  private duration: number;
-
-  constructor(level: number) {
-    this.duration = Math.min(4000, 2000 + level * 200);
-  }
 
   execute(state: GameState): void {
-    state.setReverseInput(this.duration);
+    const duration = Math.min(4000, 2000 + state.getLevel() * 200);
+    state.setReverseInput(duration);
   }
 }
 

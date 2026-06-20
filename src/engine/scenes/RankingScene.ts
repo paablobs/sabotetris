@@ -11,6 +11,7 @@ import { audio } from '../services/AudioService';
 export class RankingScene extends ex.Scene {
   private rankingService = new RankingService();
   private overlayActor!: ex.Actor;
+  private cachedEntries: ReturnType<RankingService['getRanking']> = [];
 
   onInitialize(engine: ex.Engine): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
@@ -66,6 +67,10 @@ export class RankingScene extends ex.Scene {
     this.add(backBtn);
   }
 
+  onActivate(): void {
+    this.cachedEntries = this.rankingService.getRanking();
+  }
+
   private drawOverlay(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -76,7 +81,7 @@ export class RankingScene extends ex.Scene {
     ctx.textBaseline = 'middle';
     ctx.fillText('RANKING', CANVAS_WIDTH / 2, 30);
 
-    const entries = this.rankingService.getRanking();
+    const entries = this.cachedEntries;
     const startY = 65;
     const lineH = 27;
 

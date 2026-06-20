@@ -16,6 +16,7 @@ export class GameOverScene extends ex.Scene {
   private saved = false;
   private rankingService = new RankingService();
   private overlayActor!: ex.Actor;
+  private clickHandler: (() => void) | null = null;
 
   onInitialize(): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
@@ -210,14 +211,19 @@ export class GameOverScene extends ex.Scene {
   }
 
   private addClickHandler(): void {
-    this.overlayActor.on('pointerup', () => {
+    if (this.clickHandler) return;
+    this.clickHandler = () => {
       audio.playSfx('click');
       this.engine?.goToScene('menu');
-    });
+    };
+    this.overlayActor.on('pointerup', this.clickHandler);
     this.overlayActor.pointer.useGraphicsBounds = true;
   }
 
   private removeClickHandler(): void {
-    this.overlayActor.off('pointerup');
+    if (this.clickHandler) {
+      this.overlayActor.off('pointerup', this.clickHandler);
+      this.clickHandler = null;
+    }
   }
 }

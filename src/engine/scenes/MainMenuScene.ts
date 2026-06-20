@@ -6,7 +6,8 @@ import {
   ADMIN_TAP_COUNT,
   ADMIN_TAP_WINDOW_MS,
 } from '../services/AdminService';
-import { audio, drawMuteIcon } from '../services/AudioService';
+import { audio } from '../services/AudioService';
+import { createMuteButton } from '../actors/MuteButton';
 
 const TUTORIAL_STORAGE_KEY = 'sabotetris:seenTutorial';
 
@@ -24,7 +25,7 @@ export class MainMenuScene extends ex.Scene {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     this.add(this.createLogo());
     this.add(this.createVersion());
-    this.add(this.createMuteButton());
+    this.add(createMuteButton());
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, 200, 50, 'PLAY', () => {
       this.engine?.goToScene('game', { sceneActivationData: { mode: 'softcore' } });
     }));
@@ -367,40 +368,6 @@ export class MainMenuScene extends ex.Scene {
       },
     });
     actor.graphics.use(graphic);
-    return actor;
-  }
-
-  private createMuteButton(): ex.Actor {
-    const size = 44;
-    const actor = new ex.Actor({
-      x: CANVAS_WIDTH - 12 - size / 2,
-      y: 12 + size / 2,
-      width: size,
-      height: size,
-      anchor: ex.Vector.Half,
-    });
-    const graphic = new ex.Canvas({
-      cache: false,
-      width: size,
-      height: size,
-      draw: (ctx) => {
-        const muted = audio.isMuted();
-        const accent = muted ? '#ff4d6d' : '#4dd0ff';
-        ctx.fillStyle = muted ? 'rgba(255, 77, 109, 0.18)' : 'rgba(77, 208, 255, 0.18)';
-        ctx.fillRect(0, 0, size, size);
-        ctx.strokeStyle = muted ? 'rgba(255, 77, 109, 0.6)' : 'rgba(77, 208, 255, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, size, size);
-        drawMuteIcon(ctx, size, muted, accent);
-      },
-    });
-    actor.graphics.use(graphic);
-
-    actor.on('pointerdown', () => {
-      audio.toggleMute();
-    });
-    actor.pointer.useGraphicsBounds = true;
-
     return actor;
   }
 

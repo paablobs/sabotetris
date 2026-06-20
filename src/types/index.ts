@@ -46,6 +46,7 @@ export interface GameState {
   forceNextPieceType(type: TetrominoType): void;
   shiftBoardUp(): void;
   spawnSpaceInvader(): void;
+  getLevel(): number;
 }
 
 export interface ChaosEffect {
@@ -62,5 +63,7 @@ export const BOARD_HEIGHT = ROWS * CELL_SIZE;
 export const BOARD_X = 20;
 export const BOARD_Y = 30;
 export const PANEL_X = BOARD_X + BOARD_WIDTH + 20;
+export const PANEL_WIDTH = 140;
+export const PANEL_HEIGHT = 400;
 export const CANVAS_WIDTH = 540;
 export const CANVAS_HEIGHT = 700;

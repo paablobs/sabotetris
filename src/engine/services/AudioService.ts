@@ -45,6 +45,7 @@ class AudioService {
   private readonly sfxVolume = 0.55;
 
   private muted: boolean;
+  private visibilityListenerAttached = false;
 
   constructor() {
     this.muted = readMuteFromStorage();
@@ -148,7 +149,10 @@ class AudioService {
       this.sfxGain.gain.value = this.sfxVolume;
       this.sfxGain.connect(this.masterGain);
 
-      document.addEventListener('visibilitychange', this.handleVisibility);
+      if (!this.visibilityListenerAttached) {
+        document.addEventListener('visibilitychange', this.handleVisibility);
+        this.visibilityListenerAttached = true;
+      }
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().then(() => {

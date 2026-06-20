@@ -23,7 +23,24 @@ export class DVDActor extends ex.Actor {
   }
 
   onInitialize(): void {
-    this.updateGraphic();
+    const graphic = new ex.Canvas({
+      cache: false,
+      width: 120,
+      height: 68,
+      draw: (ctx) => {
+        ctx.fillStyle = this.dvdColor;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 120, 68, 16);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('DVD', 60, 34);
+      },
+    });
+    this.graphics.use(graphic);
   }
 
   onPreUpdate(_engine: ex.Engine, delta: number): void {
@@ -45,33 +62,10 @@ export class DVDActor extends ex.Actor {
 
     if (bounced) {
       this.dvdColor = this.randomColor();
-      this.updateGraphic();
     }
 
     this.pos.x = nextX;
     this.pos.y = nextY;
-  }
-
-  private updateGraphic(): void {
-    const c = this.dvdColor;
-    const graphic = new ex.Canvas({
-      cache: false,
-      width: 120,
-      height: 68,
-      draw: (ctx) => {
-        ctx.fillStyle = c;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, 120, 68, 16);
-        ctx.fill();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('DVD', 60, 34);
-      },
-    });
-    this.graphics.use(graphic);
   }
 
   private randomColor(): string {
