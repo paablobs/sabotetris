@@ -1,5 +1,5 @@
 import * as ex from 'excalibur';
-import { PANEL_X, BOARD_Y } from '../../types';
+import { PANEL_X, BOARD_Y, PANEL_WIDTH, PANEL_HEIGHT } from '../../types';
 import { TETROMINOES } from '../../data/tetrominoes';
 import type { TetrominoType } from '../../types';
 
@@ -21,8 +21,8 @@ export class SidePanel extends ex.Actor {
     super({
       x: PANEL_X,
       y: BOARD_Y,
-      width: 140,
-      height: 400,
+      width: PANEL_WIDTH,
+      height: PANEL_HEIGHT,
       anchor: ex.Vector.Zero,
     });
   }
@@ -30,8 +30,8 @@ export class SidePanel extends ex.Actor {
   onInitialize(): void {
     const graphic = new ex.Canvas({
       cache: false,
-      width: 140,
-      height: 400,
+      width: PANEL_WIDTH,
+      height: PANEL_HEIGHT,
       draw: (ctx) => this.draw(ctx),
     });
     this.graphics.use(graphic);
@@ -83,10 +83,10 @@ export class SidePanel extends ex.Actor {
 
   private drawNextPiece(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     ctx.fillStyle = '#16213e';
-    ctx.fillRect(x, y, 140, 120);
+    ctx.fillRect(x, y, PANEL_WIDTH, 120);
     ctx.strokeStyle = '#2a3a5c';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, 140, 120);
+    ctx.strokeRect(x, y, PANEL_WIDTH, 120);
 
     ctx.fillStyle = '#8899aa';
     ctx.font = '12px monospace';
@@ -109,7 +109,7 @@ export class SidePanel extends ex.Actor {
     const shape = def.shape;
     const rows = shape.length;
     const cols = shape[0].length;
-    const offsetX = x + (140 - cols * previewSize) / 2;
+    const offsetX = x + (PANEL_WIDTH - cols * previewSize) / 2;
     const offsetY = y + 10 + (110 - rows * previewSize) / 2;
 
     for (let r = 0; r < rows; r++) {
@@ -124,10 +124,10 @@ export class SidePanel extends ex.Actor {
 
   private drawInfo(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     ctx.fillStyle = '#16213e';
-    ctx.fillRect(x, y, 140, 220);
+    ctx.fillRect(x, y, PANEL_WIDTH, 220);
     ctx.strokeStyle = '#2a3a5c';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, 140, 220);
+    ctx.strokeRect(x, y, PANEL_WIDTH, 220);
 
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
@@ -176,10 +176,10 @@ export class SidePanel extends ex.Actor {
     if (!this.chaosEffectName) return;
 
     ctx.fillStyle = 'rgba(180, 60, 60, 0.15)';
-    ctx.fillRect(x, y, 140, 36);
+    ctx.fillRect(x, y, PANEL_WIDTH, 36);
     ctx.strokeStyle = 'rgba(180, 60, 60, 0.4)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, 140, 36);
+    ctx.strokeRect(x, y, PANEL_WIDTH, 36);
 
     ctx.fillStyle = '#cc4444';
     ctx.font = '11px monospace';

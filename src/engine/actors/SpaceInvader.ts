@@ -23,8 +23,9 @@ export class SpaceInvaderActor extends ex.Actor {
   private shotTimer = 0;
   private readonly shotInterval = 1500;
   private alive = true;
+  private readonly onBlockDestroyed?: (row: number, col: number) => void;
 
-  constructor(grid: Grid) {
+  constructor(grid: Grid, onBlockDestroyed?: (row: number, col: number) => void) {
     const startX = BOARD_X + 40 + Math.random() * (BOARD_WIDTH - 80);
     super({
       x: startX,
@@ -34,6 +35,7 @@ export class SpaceInvaderActor extends ex.Actor {
       anchor: ex.Vector.Half,
     });
     this.grid = grid;
+    this.onBlockDestroyed = onBlockDestroyed;
   }
 
   onInitialize(): void {
@@ -78,7 +80,7 @@ export class SpaceInvaderActor extends ex.Actor {
 
   private fireBullet(): void {
     this.shotsFired++;
-    const bullet = new InvaderBullet(this.pos.x, this.pos.y + 28, this.grid);
+    const bullet = new InvaderBullet(this.pos.x, this.pos.y + 28, this.grid, this.onBlockDestroyed);
     this.scene?.add(bullet);
   }
 }
@@ -86,8 +88,9 @@ export class SpaceInvaderActor extends ex.Actor {
 class InvaderBullet extends ex.Actor {
   private readonly grid: Grid;
   private speed = 300;
+  private readonly onBlockDestroyed?: (row: number, col: number) => void;
 
-  constructor(x: number, y: number, grid: Grid) {
+  constructor(x: number, y: number, grid: Grid, onBlockDestroyed?: (row: number, col: number) => void) {
     super({
       x,
       y,
@@ -96,6 +99,7 @@ class InvaderBullet extends ex.Actor {
       anchor: ex.Vector.Half,
     });
     this.grid = grid;
+    this.onBlockDestroyed = onBlockDestroyed;
   }
 
   onInitialize(): void {
@@ -119,7 +123,7 @@ class InvaderBullet extends ex.Actor {
 
     if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
       if (this.grid[row][col] !== null) {
-        this.grid[row][col] = null;
+        this.onBlockDestroyed?.(row, col);
         this.kill();
         return;
       }

@@ -18,7 +18,8 @@ import { DVDActor } from '../actors/DVD';
 import { SpaceInvaderActor } from '../actors/SpaceInvader';
 import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
-import { audio, drawMuteIcon } from '../services/AudioService';
+import { audio } from '../services/AudioService';
+import { createMuteButton } from '../actors/MuteButton';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -61,6 +62,7 @@ export class GameScene extends ex.Scene {
 
   private mode: 'softcore' | 'hardcore' = 'softcore';
   private dvdActor: DVDActor | null = null;
+  private spawnedActors: ex.Actor[] = [];
 
   constructor() {
     super();
@@ -86,7 +88,7 @@ export class GameScene extends ex.Scene {
     this.pauseOverlayActor.z = 100;
     this.add(this.pauseOverlayActor);
 
-    this.add(this.createMuteButton());
+    this.add(createMuteButton());
 
     if (isMobile) {
       const canvas = engine.canvas;
@@ -149,41 +151,6 @@ export class GameScene extends ex.Scene {
     this.boardActor.setBackgroundColor(color);
   }
 
-  private createMuteButton(): ex.Actor {
-    const size = 44;
-    const actor = new ex.Actor({
-      x: CANVAS_WIDTH - 12 - size / 2,
-      y: 12 + size / 2,
-      width: size,
-      height: size,
-      anchor: ex.Vector.Half,
-      z: 50,
-    });
-    const graphic = new ex.Canvas({
-      cache: false,
-      width: size,
-      height: size,
-      draw: (ctx) => {
-        const muted = audio.isMuted();
-        const accent = muted ? '#ff4d6d' : '#4dd0ff';
-        ctx.fillStyle = muted ? 'rgba(255, 77, 109, 0.18)' : 'rgba(77, 208, 255, 0.18)';
-        ctx.fillRect(0, 0, size, size);
-        ctx.strokeStyle = muted ? 'rgba(255, 77, 109, 0.6)' : 'rgba(77, 208, 255, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, size, size);
-        drawMuteIcon(ctx, size, muted, accent);
-      },
-    });
-    actor.graphics.use(graphic);
-
-    actor.on('pointerdown', () => {
-      audio.toggleMute();
-    });
-    actor.pointer.useGraphicsBounds = true;
-
-    return actor;
-  }
-
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
     this.paused = false;
     if (this.pauseOverlayActor) {
@@ -226,6 +193,10 @@ export class GameScene extends ex.Scene {
       this.dvdActor.kill();
       this.dvdActor = null;
     }
+    for (const actor of this.spawnedActors) {
+      actor.kill();
+    }
+    this.spawnedActors = [];
   }
 
   private resetGame(): void {
@@ -243,6 +214,10 @@ export class GameScene extends ex.Scene {
     this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.highestReachedLevel = 1;
+    for (const actor of this.spawnedActors) {
+      actor.kill();
+    }
+    this.spawnedActors = [];
 
     this.scoreService.reset();
     this.levelService.reset();
@@ -331,6 +306,7 @@ export class GameScene extends ex.Scene {
       forceNextPieceType: (t: TetrominoType) => { this.nextPieceType = t; },
       shiftBoardUp: () => this.shiftBoardUp(),
       spawnSpaceInvader: () => this.spawnSpaceInvader(),
+      getLevel: () => this.levelService.getLevel(),
     };
     this.chaosEngine = new ChaosEngine(this.levelService.getLevel(), gameState, this.mode);
   }
@@ -732,7 +708,10 @@ export class GameScene extends ex.Scene {
   }
 
   private spawnSpaceInvader(): void {
-    const invader = new SpaceInvaderActor(this.grid);
+    const invader = new SpaceInvaderActor(this.grid, (row, col) => {
+      this.grid[row][col] = null;
+    });
+    this.spawnedActors.push(invader);
     this.add(invader);
   }
 
