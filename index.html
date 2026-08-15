@@ -2,12 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Sabotetris</title>
+    <meta name="theme-color" content="#0d0d1a" />
+    <meta name="description" content="Play Sabotetris, a chaotic free Tetris game where random sabotage effects make every falling block harder to place." />
+    <link rel="canonical" href="https://paablobs.github.io/sabotetris/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sabotetris | Chaotic Tetris Game" />
+    <meta property="og:description" content="Stack blocks, clear lines, and survive random sabotage effects in this chaotic free Tetris game." />
+    <meta property="og:url" content="https://paablobs.github.io/sabotetris/" />
+    <meta property="og:image" content="https://paablobs.github.io/sabotetris/logo.svg" />
+    <meta property="og:image:alt" content="Sabotetris logo" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Sabotetris | Chaotic Tetris Game" />
+    <meta name="twitter:description" content="Stack blocks, clear lines, and survive random sabotage effects in this chaotic free Tetris game." />
+    <meta name="twitter:image" content="https://paablobs.github.io/sabotetris/logo.svg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Sabotetris",
+        "description": "A chaotic free Tetris game where random sabotage effects disrupt the falling blocks.",
+        "url": "https://paablobs.github.io/sabotetris/",
+        "image": "https://paablobs.github.io/sabotetris/logo.svg",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web browser",
+        "genre": "Puzzle",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+    <title>Sabotetris | Chaotic Tetris Game</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Sabotetris: a chaotic Tetris game</h1>
+      <p>Play a free browser Tetris game where random sabotage effects disrupt your strategy. JavaScript is required to play.</p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
