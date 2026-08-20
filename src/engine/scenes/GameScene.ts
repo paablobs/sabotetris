@@ -20,6 +20,7 @@ import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
 import { audio } from '../services/AudioService';
 import { createMuteButton } from '../actors/MuteButton';
+import { createVolumeSlider } from '../actors/VolumeSlider';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -89,6 +90,7 @@ export class GameScene extends ex.Scene {
     this.add(this.pauseOverlayActor);
 
     this.add(createMuteButton());
+    this.add(createVolumeSlider());
 
     if (isMobile) {
       const canvas = engine.canvas;

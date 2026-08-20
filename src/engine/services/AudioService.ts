@@ -40,7 +40,7 @@ class AudioService {
   private pendingTrack: TrackId | null = null;
   private unlocked = false;
 
-  private readonly masterVolume = 0.4;
+  private masterVolume: number;
   private readonly musicVolume = 0.28;
   private readonly sfxVolume = 0.55;
 
@@ -49,10 +49,15 @@ class AudioService {
 
   constructor() {
     this.muted = readMuteFromStorage();
+    this.masterVolume = readVolumeFromStorage();
   }
 
   isMuted(): boolean {
     return this.muted;
+  }
+
+  getMasterVolume(): number {
+    return this.masterVolume;
   }
 
   setMuted(muted: boolean): void {
@@ -130,7 +135,9 @@ class AudioService {
   }
 
   setMasterVolume(v: number): void {
-    if (this.masterGain && !this.muted) this.masterGain.gain.value = clamp01(v);
+    this.masterVolume = clamp01(v);
+    writeVolumeToStorage(this.masterVolume);
+    if (this.masterGain && this.ctx) this.applyMuteToMaster();
   }
 
   private ensureContext(): boolean {
@@ -574,6 +581,8 @@ function clamp01(v: number): number {
 }
 
 const MUTE_STORAGE_KEY = 'sabotetris:mute';
+const VOLUME_STORAGE_KEY = 'sabotetris:volume';
+const DEFAULT_MASTER_VOLUME = 0.35;
 
 function readMuteFromStorage(): boolean {
   if (typeof localStorage === 'undefined') return false;
@@ -588,6 +597,27 @@ function writeMuteToStorage(muted: boolean): void {
   if (typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(MUTE_STORAGE_KEY, muted ? '1' : '0');
+  } catch {
+    // localStorage may be unavailable (private mode, quota, etc.)
+  }
+}
+
+function readVolumeFromStorage(): number {
+  if (typeof localStorage === 'undefined') return DEFAULT_MASTER_VOLUME;
+  try {
+    const stored = localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (stored === null) return DEFAULT_MASTER_VOLUME;
+    const volume = Number(stored);
+    return Number.isFinite(volume) ? clamp01(volume) : DEFAULT_MASTER_VOLUME;
+  } catch {
+    return DEFAULT_MASTER_VOLUME;
+  }
+}
+
+function writeVolumeToStorage(volume: number): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
   } catch {
     // localStorage may be unavailable (private mode, quota, etc.)
   }

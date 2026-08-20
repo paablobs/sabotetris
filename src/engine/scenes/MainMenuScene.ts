@@ -8,6 +8,7 @@ import {
 } from '../services/AdminService';
 import { audio } from '../services/AudioService';
 import { createMuteButton } from '../actors/MuteButton';
+import { createVolumeSlider } from '../actors/VolumeSlider';
 
 const TUTORIAL_STORAGE_KEY = 'sabotetris:seenTutorial';
 
@@ -26,6 +27,7 @@ export class MainMenuScene extends ex.Scene {
     this.add(this.createLogo());
     this.add(this.createVersion());
     this.add(createMuteButton());
+    this.add(createVolumeSlider());
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, 200, 50, 'PLAY', () => {
       this.engine?.goToScene('game', { sceneActivationData: { mode: 'softcore' } });
     }));
