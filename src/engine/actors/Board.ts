@@ -1,6 +1,7 @@
 import * as ex from 'excalibur';
 import { COLS, ROWS, CELL_SIZE, BOARD_WIDTH, BOARD_HEIGHT, BOARD_X, BOARD_Y } from '../../types';
 import type { Grid, PieceState } from '../../types';
+import { isValidPosition } from '../../utils/helpers';
 
 /**
  * BoardActor renders the Tetris game board and current piece using Excalibur's Canvas graphics.
@@ -74,7 +75,7 @@ export class BoardActor extends ex.Actor {
     let ghostRow = this.currentPiece.row;
     const ghostCol = this.currentPiece.col;
 
-    while (this.isValidGhost(ghostRow + 1, ghostCol, shape)) {
+    while (isValidPosition(this.grid, shape, ghostRow + 1, ghostCol)) {
       ghostRow++;
     }
 
@@ -93,20 +94,6 @@ export class BoardActor extends ex.Actor {
       }
     }
     ctx.globalAlpha = 1.0;
-  }
-
-  private isValidGhost(row: number, col: number, shape: number[][]): boolean {
-    for (let r = 0; r < shape.length; r++) {
-      for (let c = 0; c < shape[r].length; c++) {
-        if (!shape[r][c]) continue;
-        const boardRow = row + r;
-        const boardCol = col + c;
-        if (boardCol < 0 || boardCol >= COLS || boardRow >= ROWS) return false;
-        if (boardRow < 0) continue;
-        if (this.grid[boardRow][boardCol] !== null) return false;
-      }
-    }
-    return true;
   }
 
   private drawCurrentPiece(ctx: CanvasRenderingContext2D): void {

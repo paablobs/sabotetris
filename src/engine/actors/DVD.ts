@@ -1,5 +1,6 @@
 import * as ex from 'excalibur';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
+import { isScenePaused } from './pauseGuard';
 
 /**
  * Bouncing DVD logo for hardcore mode.
@@ -44,6 +45,8 @@ export class DVDActor extends ex.Actor {
   }
 
   onPreUpdate(_engine: ex.Engine, delta: number): void {
+    if (isScenePaused(this.scene)) return;
+
     const dt = delta / 1000;
     let nextX = this.pos.x + this.vx * dt;
     let nextY = this.pos.y + this.vy * dt;

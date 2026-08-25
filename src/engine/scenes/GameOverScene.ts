@@ -14,6 +14,7 @@ export class GameOverScene extends ex.Scene {
   private mode: 'softcore' | 'hardcore' = 'softcore';
   private playerName = '';
   private saved = false;
+  private saveFailed = false;
   private rankingService = new RankingService();
   private overlayActor!: ex.Actor;
   private clickHandler: (() => void) | null = null;
@@ -46,6 +47,7 @@ export class GameOverScene extends ex.Scene {
     }
     this.playerName = '';
     this.saved = false;
+    this.saveFailed = false;
 
     this.removeClickHandler();
   }
@@ -187,6 +189,14 @@ export class GameOverScene extends ex.Scene {
         CANVAS_WIDTH / 2,
         CANVAS_HEIGHT / 2 + 120
       );
+    } else if (this.saveFailed) {
+      ctx.fillStyle = '#cc4444';
+      ctx.font = '16px monospace';
+      ctx.fillText('Save failed — storage unavailable', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+
+      ctx.fillStyle = '#556677';
+      ctx.font = '14px monospace';
+      ctx.fillText('Press ENTER to retry or ESC to exit', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
     } else {
       ctx.fillStyle = '#6BB86B';
       ctx.font = '18px monospace';
@@ -199,15 +209,19 @@ export class GameOverScene extends ex.Scene {
   }
 
   private saveScore(): void {
-    this.rankingService.addEntry({
+    const ok = this.rankingService.addEntry({
       playerName: this.playerName,
       score: this.score,
       level: this.level,
       date: new Date().toLocaleDateString(),
       mode: this.mode,
     });
-    this.saved = true;
-    this.addClickHandler();
+    if (ok) {
+      this.saved = true;
+      this.addClickHandler();
+    } else {
+      this.saveFailed = true;
+    }
   }
 
   private addClickHandler(): void {

@@ -9,6 +9,7 @@ import {
   CELL_SIZE,
 } from '../../types';
 import type { Grid } from '../../types';
+import { isScenePaused } from './pauseGuard';
 
 /**
  * Space invader ship that appears in hardcore mode and shoots bullets
@@ -57,7 +58,7 @@ export class SpaceInvaderActor extends ex.Actor {
   }
 
   onPreUpdate(_engine: ex.Engine, delta: number): void {
-    if (!this.alive) return;
+    if (!this.alive || isScenePaused(this.scene)) return;
 
     const dt = delta / 1000;
     this.pos.x += this.direction * this.speed * dt;
@@ -116,6 +117,7 @@ class InvaderBullet extends ex.Actor {
   }
 
   onPreUpdate(_engine: ex.Engine, delta: number): void {
+    if (isScenePaused(this.scene)) return;
     this.pos.y += this.speed * (delta / 1000);
 
     const col = Math.floor((this.pos.x - BOARD_X) / CELL_SIZE);

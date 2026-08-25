@@ -36,6 +36,7 @@ class AudioService {
   private musicTimer: number | null = null;
   private currentTrack: TrackId | null = null;
   private trackStartTime = 0;
+  private pausedOffset = 0;
   private musicPaused = false;
   private pendingTrack: TrackId | null = null;
   private unlocked = false;
@@ -99,12 +100,14 @@ class AudioService {
     this.killActiveVoices();
     this.currentTrack = null;
     this.musicPaused = false;
+    this.pausedOffset = 0;
   }
 
   pauseMusic(): void {
     if (!this.currentTrack || this.musicPaused) return;
     if (!this.ctx) return;
     this.musicPaused = true;
+    this.pausedOffset = Math.max(0, this.ctx.currentTime - this.trackStartTime);
     if (this.musicTimer !== null) {
       clearTimeout(this.musicTimer);
       this.musicTimer = null;
@@ -119,7 +122,9 @@ class AudioService {
       this.pendingTrack = this.currentTrack;
       return;
     }
-    this.trackStartTime = this.ctx.currentTime;
+    // Continue from where the track paused; scheduleTrackLoop fast-forwards
+    // through any loops that were missed while suspended.
+    this.trackStartTime = this.ctx.currentTime - this.pausedOffset;
     this.scheduleTrackLoop(this.currentTrack, this.trackStartTime);
   }
 
@@ -207,6 +212,7 @@ class AudioService {
   private startTrack(track: TrackId): void {
     if (!this.ctx) return;
     this.trackStartTime = this.ctx.currentTime;
+    this.pausedOffset = 0;
     this.scheduleTrackLoop(track, this.trackStartTime);
   }
 
