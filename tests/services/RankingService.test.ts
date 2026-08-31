@@ -52,7 +52,6 @@ describe('RankingService', () => {
       svc.addEntry(entry(`p${i}`, i * 10));
     }
     expect(svc.getRanking()).toHaveLength(20);
-    // The five lowest scores are gone.
     const scores = svc.getRanking().map((e) => e.score);
     expect(Math.min(...scores)).toBe(5 * 10);
   });

@@ -19,11 +19,6 @@ export class RankingService {
     }
   }
 
-  /**
-   * Adds an entry and persists the trimmed ranking. Returns false when the
-   * write fails (private mode, quota exceeded), so callers can show an error
-   * instead of crashing.
-   */
   addEntry(entry: ScoreEntry): boolean {
     const entries = this.getRanking();
     // Backward-compat: entries without mode default to softcore

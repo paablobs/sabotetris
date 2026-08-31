@@ -122,8 +122,6 @@ class AudioService {
       this.pendingTrack = this.currentTrack;
       return;
     }
-    // Continue from where the track paused; scheduleTrackLoop fast-forwards
-    // through any loops that were missed while suspended.
     this.trackStartTime = this.ctx.currentTime - this.pausedOffset;
     this.scheduleTrackLoop(this.currentTrack, this.trackStartTime);
   }

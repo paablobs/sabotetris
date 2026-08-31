@@ -2,11 +2,13 @@ import * as ex from 'excalibur';
 import { CANVAS_WIDTH } from '../../types';
 import { audio, drawMuteIcon } from '../services/AudioService';
 
-export function createMuteButton(): ex.Actor {
+export function createMuteButton(at?: { x: number; y: number }): ex.Actor {
   const size = 44;
+  const x = at?.x ?? CANVAS_WIDTH - 12 - size / 2;
+  const y = at?.y ?? 12 + size / 2;
   const actor = new ex.Actor({
-    x: CANVAS_WIDTH - 12 - size / 2,
-    y: 12 + size / 2,
+    x,
+    y,
     width: size,
     height: size,
     anchor: ex.Vector.Half,

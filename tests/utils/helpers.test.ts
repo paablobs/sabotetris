@@ -51,8 +51,6 @@ describe('rotateMatrix', () => {
       [0, 0, 0, 0],
     ];
     const rotated = rotateMatrix(i);
-    // After one clockwise rotation the solid row becomes a solid column
-    // (column index 2).
     expect(rotated.map((row) => row[2])).toEqual([1, 1, 1, 1]);
     expect(rotated[1]).toEqual([0, 0, 1, 0]);
   });
@@ -100,7 +98,6 @@ describe('isValidPosition', () => {
       [0, 1],
       [0, 0],
     ];
-    // Cell at (col 4) is empty, so only (row, col 5) matters.
     grid[10][4] = '#ff0000';
     expect(isValidPosition(grid, shape, 10, 4)).toBe(true);
   });

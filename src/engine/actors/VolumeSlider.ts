@@ -4,12 +4,16 @@ import { audio } from '../services/AudioService';
 
 const SLIDER_WIDTH = 120;
 const SLIDER_HEIGHT = 44;
-const SLIDER_X = CANVAS_WIDTH - 12 - 44 - 10 - SLIDER_WIDTH / 2;
+const DEFAULT_SLIDER_X = CANVAS_WIDTH - 12 - 44 - 10 - SLIDER_WIDTH / 2;
+const DEFAULT_SLIDER_Y = 34;
 
-export function createVolumeSlider(): ex.Actor {
+export function createVolumeSlider(at?: { x: number; y: number }): ex.Actor {
+  const x = at?.x ?? DEFAULT_SLIDER_X;
+  const y = at?.y ?? DEFAULT_SLIDER_Y;
+
   const actor = new ex.Actor({
-    x: SLIDER_X,
-    y: 34,
+    x,
+    y,
     width: SLIDER_WIDTH,
     height: SLIDER_HEIGHT,
     anchor: ex.Vector.Half,
@@ -49,7 +53,7 @@ export function createVolumeSlider(): ex.Actor {
 
   let dragging = false;
   const updateVolume = (evt: ex.PointerEvent): void => {
-    const localX = evt.worldPos.x - (SLIDER_X - SLIDER_WIDTH / 2);
+    const localX = evt.worldPos.x - (x - SLIDER_WIDTH / 2);
     audio.setMasterVolume(localX / SLIDER_WIDTH);
   };
   actor.on('pointerdown', (evt) => {

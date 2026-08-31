@@ -37,7 +37,6 @@ describe('LevelService', () => {
     expect(svc.getSpeed()).toBe(HARDCORE_LEVEL.speed);
     expect(svc.getChaosInterval()).toBe(HARDCORE_LEVEL.chaosInterval);
     expect(svc.getMaxScore()).toBe(Infinity);
-    // Hardcore never advances.
     expect(svc.advanceLevel()).toBe(false);
   });
 
@@ -51,13 +50,9 @@ describe('LevelService', () => {
 
   it('interpolates background color between current and next level', () => {
     const svc = new LevelService();
-    // Zero progress on level 1 -> exactly level 1 color.
     expect(svc.getBackgroundColorForScore(0)).toBe(LEVELS[0].backgroundColor);
 
-    // Full progress (score >= maxScore) -> exactly next level color.
     const full = LEVELS[0].maxScore + 1;
-    // Note: level-up happens in GameScene before this is queried with a
-    // higher score, so simulate by advancing manually.
     expect(svc.getBackgroundColorForScore(full)).not.toBe(LEVELS[0].backgroundColor);
     expect(svc.getBackgroundColorForScore(full)).toMatch(/^#[0-9a-f]{6}$/);
   });

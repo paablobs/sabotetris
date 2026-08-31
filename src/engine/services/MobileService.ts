@@ -73,8 +73,6 @@ export class TouchInput {
     this.onUp = (e) => this.handleUp(e);
     this.onCancel = (e) => this.handleUp(e);
     this.canvas.addEventListener('pointerdown', this.onDown, { passive: false });
-    // passive: false is required — the swipe handlers call preventDefault()
-    // to stop the page from scrolling while swiping.
     this.canvas.addEventListener('pointermove', this.onMove, { passive: false });
     this.canvas.addEventListener('pointerup', this.onUp, { passive: true });
     this.canvas.addEventListener('pointercancel', this.onCancel, { passive: true });

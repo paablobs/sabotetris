@@ -28,7 +28,6 @@ type PauseAction = 'continue' | 'reset' | 'home';
 const PAUSE_BUTTON_WIDTH = 220;
 const PAUSE_BUTTON_HEIGHT = 50;
 
-// [label, y offset from canvas center, action]
 const PAUSE_BUTTONS: Array<[label: string, y: number, action: PauseAction]> = [
   ['CONTINUE', -50, 'continue'],
   ['RESET', 20, 'reset'],
@@ -82,6 +81,7 @@ export class GameScene extends ex.Scene {
   private keyRepeatDelay = this.KEY_REPEAT;
 
   private pauseOverlayActor!: ex.Actor;
+  private audioControls: ex.Actor[] = [];
 
   private mode: 'softcore' | 'hardcore' = 'softcore';
   private dvdActor: DVDActor | null = null;
@@ -112,8 +112,14 @@ export class GameScene extends ex.Scene {
     this.pauseOverlayActor.z = 100;
     this.add(this.pauseOverlayActor);
 
-    this.add(createMuteButton());
-    this.add(createVolumeSlider());
+    const slider = createVolumeSlider();
+    const mute = createMuteButton();
+    for (const control of [slider, mute]) {
+      control.z = 110;
+      control.graphics.visible = false;
+      this.add(control);
+      this.audioControls.push(control);
+    }
 
     if (isMobile) {
       const canvas = engine.canvas;
@@ -177,10 +183,7 @@ export class GameScene extends ex.Scene {
   }
 
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
-    this.paused = false;
-    if (this.pauseOverlayActor) {
-      this.pauseOverlayActor.graphics.visible = false;
-    }
+    this.setPaused(false);
     this.touchInput?.enable();
 
     const data = _context.data as { mode?: 'softcore' | 'hardcore' } | undefined;
@@ -366,26 +369,27 @@ export class GameScene extends ex.Scene {
   private handlePauseToggle(engine: ex.Engine): void {
     const kb = engine.input.keyboard;
     if (kb.wasPressed(ex.Input.Keys.Escape) || kb.wasPressed(ex.Input.Keys.P)) {
-      this.paused = !this.paused;
-      this.pauseOverlayActor.graphics.visible = this.paused;
-      if (this.paused) audio.pauseMusic();
-      else audio.resumeMusic();
+      this.setPaused(!this.paused);
     }
   }
 
   private togglePauseFromTouch(): void {
     if (this.gameOver) return;
-    this.paused = !this.paused;
-    this.pauseOverlayActor.graphics.visible = this.paused;
-    if (this.paused) audio.pauseMusic();
+    this.setPaused(!this.paused);
+  }
+
+  private setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (this.pauseOverlayActor) {
+      this.pauseOverlayActor.graphics.visible = paused;
+    }
+    for (const control of this.audioControls) {
+      control.graphics.visible = paused;
+    }
+    if (paused) audio.pauseMusic();
     else audio.resumeMusic();
   }
 
-  /**
-   * Lets background actors (DVD, space invader, bullets) freeze themselves
-   * while the game is paused. Excalibur keeps updating actors even when the
-   * scene skips its own update logic, so they need to check this explicitly.
-   */
   isPaused(): boolean {
     return this.paused;
   }
@@ -441,9 +445,7 @@ export class GameScene extends ex.Scene {
       const action = hit[2];
 
       audio.playSfx('click');
-      this.paused = false;
-      this.pauseOverlayActor.graphics.visible = false;
-      audio.resumeMusic();
+      this.setPaused(false);
       if (action === 'reset') this.resetGame();
       else if (action === 'home') this.engine?.goToScene('menu');
     });
@@ -510,7 +512,6 @@ export class GameScene extends ex.Scene {
       ];
       for (let i = 0; i < digitKeys.length; i++) {
         if (kb.wasPressed(digitKeys[i])) {
-          // Digit0 jumps to the max level (10), other digits jump to their value.
           const target = i === 9 ? MAX_LEVEL : i + 1;
           this.jumpToLevel(target);
           break;
@@ -547,8 +548,6 @@ export class GameScene extends ex.Scene {
     if (!this.currentPiece) return false;
 
     const newShape = rotateMatrix(this.currentPiece.shape);
-    // Wall + floor kicks: try horizontal nudges first, then upward shifts so
-    // pieces can still rotate when resting against the floor.
     const kicks: Array<[dRow: number, dCol: number]> = [
       [0, 0], [0, -1], [0, 1], [0, -2], [0, 2],
       [-1, 0], [-1, -1], [-1, 1],
@@ -746,8 +745,6 @@ export class GameScene extends ex.Scene {
     }
     this.grid[this.grid.length - 1] = garbageRow;
 
-    // The garbage row can complete lines; clear them right away so stale
-    // full rows don't linger on the board.
     const rows = this.findCompletedRows();
     if (rows.length > 0) {
       this.clearRows(rows);
@@ -763,10 +760,6 @@ export class GameScene extends ex.Scene {
     this.add(invader);
   }
 
-  /**
-   * Draw the next piece type from a 7-bag: all seven types are shuffled and
-   * dealt before a new bag starts, which caps piece droughts.
-   */
   private randomPieceType(): TetrominoType {
     if (this.pieceBag.length === 0) {
       this.pieceBag = [...PIECE_TYPES];

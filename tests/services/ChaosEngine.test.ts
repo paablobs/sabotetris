@@ -54,7 +54,6 @@ describe('ChaosEngine', () => {
   it('never draws locked effects even after many draws', () => {
     const engine = new ChaosEngine(3, mockState(3), 'softcore');
     const names = drawMany(engine, mockState(3), 1000);
-    // Level 3 unlocks the first five effects (minLevel <= 3).
     expect(names.every((n) => ALL_SOFTCORE_EFFECTS.slice(0, 5).includes(n))).toBe(true);
   });
 
@@ -71,8 +70,6 @@ describe('ChaosEngine', () => {
     const engine = new ChaosEngine(1, state, 'softcore');
     const effect = engine.applyRandomEffect();
     expect(effect).not.toBeNull();
-    // The executed callback must belong to the returned effect. Every
-    // level-1 effect calls exactly one of these callbacks.
     const called =
       vi.mocked(state.movePiece).mock.calls.length +
       vi.mocked(state.rotatePiece).mock.calls.length +
