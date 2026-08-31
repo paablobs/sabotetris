@@ -152,9 +152,19 @@ Both use `ex.Canvas` with `cache: false` for dynamic redraw every frame.
 
 ## Testing
 
-> TODO: There is currently no test suite. If you add one, use the project's
-> existing Vite / Vitest setup (or create one) and place tests in a `tests/`
-> directory or `*.test.ts` alongside source files.
+Tests use **Vitest** (`npm test` to run once, `npm run test:watch` to watch).
+
+- Test files live in `tests/`, mirroring the `src/` layout
+  (e.g. `tests/utils/helpers.test.ts`).
+- Only pure modules are covered today: `utils/helpers.ts`,
+  `services/LevelService.ts`, `services/RankingService.ts`,
+  `services/ChaosEngine.ts`.
+- `tests/` is outside `tsconfig.app.json`'s `include`, so the production
+  build never compiles them; Vitest transforms them itself.
+- `RankingService` tests stub `globalThis.localStorage` with an in-memory
+  fake — no jsdom needed.
+- Keep new game logic in pure, framework-free modules so it stays testable.
+  Scene/actor code (Excalibur lifecycle) has no coverage.
 
 ## Linting
 

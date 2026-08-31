@@ -1,6 +1,7 @@
 import * as ex from 'excalibur';
 import { COLS, ROWS, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import type { Grid, PieceState, TetrominoType, GameState } from '../../types';
+import { MAX_LEVEL } from '../../data/levels';
 import { TETROMINOES, PIECE_TYPES } from '../../data/tetrominoes';
 import { LevelService } from '../services/LevelService';
 import { ScoreService } from '../services/ScoreService';
@@ -21,6 +22,26 @@ import { isMobile, TouchInput } from '../services/MobileService';
 import { audio } from '../services/AudioService';
 import { createMuteButton } from '../actors/MuteButton';
 import { createVolumeSlider } from '../actors/VolumeSlider';
+
+type PauseAction = 'continue' | 'reset' | 'home';
+
+const PAUSE_BUTTON_WIDTH = 220;
+const PAUSE_BUTTON_HEIGHT = 50;
+
+const PAUSE_BUTTONS: Array<[label: string, y: number, action: PauseAction]> = [
+  ['CONTINUE', -50, 'continue'],
+  ['RESET', 20, 'reset'],
+  ['HOME', 90, 'home'],
+];
+
+function pauseButtonRect(centerOffsetY: number) {
+  return {
+    x: (CANVAS_WIDTH - PAUSE_BUTTON_WIDTH) / 2,
+    y: CANVAS_HEIGHT / 2 + centerOffsetY,
+    w: PAUSE_BUTTON_WIDTH,
+    h: PAUSE_BUTTON_HEIGHT,
+  };
+}
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -60,10 +81,12 @@ export class GameScene extends ex.Scene {
   private keyRepeatDelay = this.KEY_REPEAT;
 
   private pauseOverlayActor!: ex.Actor;
+  private audioControls: ex.Actor[] = [];
 
   private mode: 'softcore' | 'hardcore' = 'softcore';
   private dvdActor: DVDActor | null = null;
   private spawnedActors: ex.Actor[] = [];
+  private pieceBag: TetrominoType[] = [];
 
   constructor() {
     super();
@@ -89,12 +112,18 @@ export class GameScene extends ex.Scene {
     this.pauseOverlayActor.z = 100;
     this.add(this.pauseOverlayActor);
 
-    this.add(createMuteButton());
-    this.add(createVolumeSlider());
+    const slider = createVolumeSlider();
+    const mute = createMuteButton();
+    for (const control of [slider, mute]) {
+      control.z = 110;
+      control.graphics.visible = false;
+      this.add(control);
+      this.audioControls.push(control);
+    }
 
     if (isMobile) {
       const canvas = engine.canvas;
-      this.touchInput = new TouchInput(canvas, engine, {
+      this.touchInput = new TouchInput(canvas, {
         moveLeft: () => {
           if (this.ignoreInput) return;
           this.movePieceWithChecks(0, this.reverseInput ? 1 : -1);
@@ -154,10 +183,7 @@ export class GameScene extends ex.Scene {
   }
 
   onActivate(_context: ex.SceneActivationContext<unknown>): void {
-    this.paused = false;
-    if (this.pauseOverlayActor) {
-      this.pauseOverlayActor.graphics.visible = false;
-    }
+    this.setPaused(false);
     this.touchInput?.enable();
 
     const data = _context.data as { mode?: 'softcore' | 'hardcore' } | undefined;
@@ -216,6 +242,7 @@ export class GameScene extends ex.Scene {
     this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
     this.highestReachedLevel = 1;
+    this.pieceBag = [];
     for (const actor of this.spawnedActors) {
       actor.kill();
     }
@@ -342,19 +369,29 @@ export class GameScene extends ex.Scene {
   private handlePauseToggle(engine: ex.Engine): void {
     const kb = engine.input.keyboard;
     if (kb.wasPressed(ex.Input.Keys.Escape) || kb.wasPressed(ex.Input.Keys.P)) {
-      this.paused = !this.paused;
-      this.pauseOverlayActor.graphics.visible = this.paused;
-      if (this.paused) audio.pauseMusic();
-      else audio.resumeMusic();
+      this.setPaused(!this.paused);
     }
   }
 
   private togglePauseFromTouch(): void {
     if (this.gameOver) return;
-    this.paused = !this.paused;
-    this.pauseOverlayActor.graphics.visible = this.paused;
-    if (this.paused) audio.pauseMusic();
+    this.setPaused(!this.paused);
+  }
+
+  private setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (this.pauseOverlayActor) {
+      this.pauseOverlayActor.graphics.visible = paused;
+    }
+    for (const control of this.audioControls) {
+      control.graphics.visible = paused;
+    }
+    if (paused) audio.pauseMusic();
     else audio.resumeMusic();
+  }
+
+  isPaused(): boolean {
+    return this.paused;
   }
 
   private createPauseOverlay(): ex.Actor {
@@ -380,36 +417,18 @@ export class GameScene extends ex.Scene {
         ctx.textBaseline = 'middle';
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120);
 
-        const bw = 220, bh = 50;
-        const bx = (CANVAS_WIDTH - bw) / 2;
-        const by1 = CANVAS_HEIGHT / 2 - 50;
-        const by2 = CANVAS_HEIGHT / 2 + 20;
-        const by3 = CANVAS_HEIGHT / 2 + 90;
+        const buttons = PAUSE_BUTTONS.map(([label, y]) => ({ label, ...pauseButtonRect(y) }));
 
-        ctx.fillStyle = '#1a2a3a';
-        ctx.fillRect(bx, by1, bw, bh);
-        ctx.strokeStyle = '#4a6a8a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, by1, bw, bh);
-        ctx.fillStyle = '#ddeeff';
-        ctx.font = '22px monospace';
-        ctx.fillText('CONTINUE', CANVAS_WIDTH / 2, by1 + bh / 2 + 2);
-
-        ctx.fillStyle = '#1a2a3a';
-        ctx.fillRect(bx, by2, bw, bh);
-        ctx.strokeStyle = '#4a6a8a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, by2, bw, bh);
-        ctx.fillStyle = '#ddeeff';
-        ctx.fillText('RESET', CANVAS_WIDTH / 2, by2 + bh / 2 + 2);
-
-        ctx.fillStyle = '#1a2a3a';
-        ctx.fillRect(bx, by3, bw, bh);
-        ctx.strokeStyle = '#4a6a8a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx, by3, bw, bh);
-        ctx.fillStyle = '#ddeeff';
-        ctx.fillText('HOME', CANVAS_WIDTH / 2, by3 + bh / 2 + 2);
+        for (const btn of buttons) {
+          ctx.fillStyle = '#1a2a3a';
+          ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+          ctx.strokeStyle = '#4a6a8a';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+          ctx.fillStyle = '#ddeeff';
+          ctx.font = '22px monospace';
+          ctx.fillText(btn.label, CANVAS_WIDTH / 2, btn.y + btn.h / 2 + 2);
+        }
       },
     });
     overlay.graphics.use(graphic);
@@ -417,29 +436,18 @@ export class GameScene extends ex.Scene {
     overlay.on('pointerup', (evt) => {
       if (!this.paused) return;
       const wp = evt.worldPos;
-      const bw = 220, bh = 50;
-      const bx = (CANVAS_WIDTH - bw) / 2;
-      const by1 = CANVAS_HEIGHT / 2 - 50;
-      const by2 = CANVAS_HEIGHT / 2 + 20;
-      const by3 = CANVAS_HEIGHT / 2 + 90;
 
-      if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by1 && wp.y <= by1 + bh) {
-        audio.playSfx('click');
-        this.paused = false;
-        this.pauseOverlayActor.graphics.visible = false;
-        audio.resumeMusic();
-      } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by2 && wp.y <= by2 + bh) {
-        audio.playSfx('click');
-        this.paused = false;
-        this.pauseOverlayActor.graphics.visible = false;
-        audio.resumeMusic();
-        this.resetGame();
-      } else if (wp.x >= bx && wp.x <= bx + bw && wp.y >= by3 && wp.y <= by3 + bh) {
-        audio.playSfx('click');
-        this.paused = false;
-        this.pauseOverlayActor.graphics.visible = false;
-        this.engine?.goToScene('menu');
-      }
+      const hit = PAUSE_BUTTONS.find(([, y]) => {
+        const r = pauseButtonRect(y);
+        return wp.x >= r.x && wp.x <= r.x + r.w && wp.y >= r.y && wp.y <= r.y + r.h;
+      });
+      if (!hit) return;
+      const action = hit[2];
+
+      audio.playSfx('click');
+      this.setPaused(false);
+      if (action === 'reset') this.resetGame();
+      else if (action === 'home') this.engine?.goToScene('menu');
     });
     overlay.pointer.useGraphicsBounds = true;
 
@@ -492,10 +500,34 @@ export class GameScene extends ex.Scene {
     if (this.paused || this.gameOver) return;
 
     if (kb.wasPressed(ex.Input.Keys.BracketRight)) {
-      this.scoreService.addScore(1000);
+      this.jumpToLevel(this.levelService.getLevel() + 1);
     } else if (kb.wasPressed(ex.Input.Keys.BracketLeft)) {
-      this.scoreService.addScore(1000);
+      this.jumpToLevel(this.levelService.getLevel() - 1);
+    } else {
+      const digitKeys = [
+        ex.Input.Keys.Digit1, ex.Input.Keys.Digit2, ex.Input.Keys.Digit3,
+        ex.Input.Keys.Digit4, ex.Input.Keys.Digit5, ex.Input.Keys.Digit6,
+        ex.Input.Keys.Digit7, ex.Input.Keys.Digit8, ex.Input.Keys.Digit9,
+        ex.Input.Keys.Digit0,
+      ];
+      for (let i = 0; i < digitKeys.length; i++) {
+        if (kb.wasPressed(digitKeys[i])) {
+          const target = i === 9 ? MAX_LEVEL : i + 1;
+          this.jumpToLevel(target);
+          break;
+        }
+      }
     }
+  }
+
+  private jumpToLevel(level: number): void {
+    this.levelService.setLevel(level);
+    this.chaosEngine.setLevel(this.levelService.getLevel());
+    this.levelStartScore = this.scoreService.getScore();
+    this.levelStartLines = this.scoreService.getLinesCleared();
+    this.highestReachedLevel = Math.max(this.highestReachedLevel, this.levelService.getLevel());
+    this.applyLevelVisuals();
+    audio.playSfx('levelUp');
   }
 
   private movePieceWithChecks(dRow: number, dCol: number): boolean {
@@ -516,14 +548,19 @@ export class GameScene extends ex.Scene {
     if (!this.currentPiece) return false;
 
     const newShape = rotateMatrix(this.currentPiece.shape);
-    const offsets = [0, -1, 1, -2, 2];
+    const kicks: Array<[dRow: number, dCol: number]> = [
+      [0, 0], [0, -1], [0, 1], [0, -2], [0, 2],
+      [-1, 0], [-1, -1], [-1, 1],
+      [-2, 0],
+    ];
 
-    for (const offset of offsets) {
-      if (
-        isValidPosition(this.grid, newShape, this.currentPiece.row, this.currentPiece.col + offset)
-      ) {
+    for (const [dRow, dCol] of kicks) {
+      const newRow = this.currentPiece.row + dRow;
+      const newCol = this.currentPiece.col + dCol;
+      if (isValidPosition(this.grid, newShape, newRow, newCol)) {
         this.currentPiece.shape = newShape;
-        this.currentPiece.col += offset;
+        this.currentPiece.row = newRow;
+        this.currentPiece.col = newCol;
         this.currentPiece.rotation = (this.currentPiece.rotation + 1) % 4;
         return true;
       }
@@ -707,6 +744,12 @@ export class GameScene extends ex.Scene {
       garbageRow.push(Math.random() < 0.3 ? '#556666' : null);
     }
     this.grid[this.grid.length - 1] = garbageRow;
+
+    const rows = this.findCompletedRows();
+    if (rows.length > 0) {
+      this.clearRows(rows);
+      audio.playSfx('lineClear');
+    }
   }
 
   private spawnSpaceInvader(): void {
@@ -718,7 +761,14 @@ export class GameScene extends ex.Scene {
   }
 
   private randomPieceType(): TetrominoType {
-    return PIECE_TYPES[randomInt(0, PIECE_TYPES.length - 1)];
+    if (this.pieceBag.length === 0) {
+      this.pieceBag = [...PIECE_TYPES];
+      for (let i = this.pieceBag.length - 1; i > 0; i--) {
+        const j = randomInt(0, i);
+        [this.pieceBag[i], this.pieceBag[j]] = [this.pieceBag[j], this.pieceBag[i]];
+      }
+    }
+    return this.pieceBag.pop()!;
   }
 
   private updateSidePanel(): void {

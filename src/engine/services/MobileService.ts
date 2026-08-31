@@ -1,5 +1,3 @@
-import * as ex from 'excalibur';
-
 /**
  * Mobile detection + touch gesture input for the GameScene.
  *
@@ -33,7 +31,7 @@ export const isMobile: boolean = (() => {
 export interface TouchInputCallbacks {
   moveLeft: () => void;
   moveRight: () => void;
-  rotate: (worldX: number, worldY: number) => void;
+  rotate: () => void;
   softDrop: () => void;
   hardDrop: () => void;
 }
@@ -53,7 +51,6 @@ const DOUBLE_TAP_MS = 300;
 
 export class TouchInput {
   private readonly canvas: HTMLCanvasElement;
-  private readonly engine: ex.Engine;
   private readonly callbacks: TouchInputCallbacks;
   private readonly touches = new Map<number, ActiveTouch>();
   private onDown: ((e: PointerEvent) => void) | null = null;
@@ -63,9 +60,8 @@ export class TouchInput {
   private enabled = false;
   private lastTapTime = 0;
 
-  constructor(canvas: HTMLCanvasElement, engine: ex.Engine, callbacks: TouchInputCallbacks) {
+  constructor(canvas: HTMLCanvasElement, callbacks: TouchInputCallbacks) {
     this.canvas = canvas;
-    this.engine = engine;
     this.callbacks = callbacks;
   }
 
@@ -77,7 +73,7 @@ export class TouchInput {
     this.onUp = (e) => this.handleUp(e);
     this.onCancel = (e) => this.handleUp(e);
     this.canvas.addEventListener('pointerdown', this.onDown, { passive: false });
-    this.canvas.addEventListener('pointermove', this.onMove, { passive: true });
+    this.canvas.addEventListener('pointermove', this.onMove, { passive: false });
     this.canvas.addEventListener('pointerup', this.onUp, { passive: true });
     this.canvas.addEventListener('pointercancel', this.onCancel, { passive: true });
   }
@@ -129,11 +125,7 @@ export class TouchInput {
     if (dy < -SWIPE_THRESHOLD && absDy > absDx) {
       t.firedSwipeOrDrop = true;
       e.preventDefault();
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      const worldPos = this.engine.screenToWorldCoordinates(new ex.Vector(screenX, screenY));
-      this.callbacks.rotate(worldPos.x, worldPos.y);
+      this.callbacks.rotate();
       return;
     }
 

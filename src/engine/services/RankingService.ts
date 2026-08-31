@@ -19,14 +19,19 @@ export class RankingService {
     }
   }
 
-  addEntry(entry: ScoreEntry): void {
+  addEntry(entry: ScoreEntry): boolean {
     const entries = this.getRanking();
     // Backward-compat: entries without mode default to softcore
     const normalized = entry.mode ? entry : { ...entry, mode: 'softcore' as const };
     entries.push(normalized);
     entries.sort((a, b) => b.score - a.score);
     const trimmed = entries.slice(0, MAX_ENTRIES);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   isHighScore(score: number): boolean {
