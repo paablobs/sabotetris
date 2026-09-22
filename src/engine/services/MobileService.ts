@@ -1,9 +1,10 @@
 import * as ex from 'excalibur';
+import { BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT } from '../../types';
 
 /**
  * Mobile detection + touch gesture input for the GameScene.
  *
- * Mobile is detected once at module load via touch capability AND coarse pointer
+ * Mobile is detected once at module load via touch capability OR coarse pointer
  * media query. On desktop (no touch / fine pointer) the entire touch layer is
  * skipped, so keyboard and mouse behavior are unaffected.
  *
@@ -18,7 +19,7 @@ import * as ex from 'excalibur';
 
 function detectCoarsePointer(): boolean {
   try {
-    return window.matchMedia('(pointer: coarse)').matches;
+    return window.matchMedia('(any-pointer: coarse)').matches;
   } catch {
     return false;
   }
@@ -26,8 +27,7 @@ function detectCoarsePointer(): boolean {
 
 export const isMobile: boolean = (() => {
   if (typeof window === 'undefined') return false;
-  const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0;
-  return hasTouch && detectCoarsePointer();
+  return (navigator.maxTouchPoints ?? 0) > 0 || detectCoarsePointer();
 })();
 
 export interface TouchInputCallbacks {
@@ -61,6 +61,7 @@ export class TouchInput {
   private onUp: ((e: PointerEvent) => void) | null = null;
   private onCancel: ((e: PointerEvent) => void) | null = null;
   private enabled = false;
+  private blocked = false;
   private lastTapTime = 0;
 
   constructor(canvas: HTMLCanvasElement, engine: ex.Engine, callbacks: TouchInputCallbacks) {
@@ -77,9 +78,9 @@ export class TouchInput {
     this.onUp = (e) => this.handleUp(e);
     this.onCancel = (e) => this.handleUp(e);
     this.canvas.addEventListener('pointerdown', this.onDown, { passive: false });
-    this.canvas.addEventListener('pointermove', this.onMove, { passive: true });
-    this.canvas.addEventListener('pointerup', this.onUp, { passive: true });
-    this.canvas.addEventListener('pointercancel', this.onCancel, { passive: true });
+    this.canvas.addEventListener('pointermove', this.onMove, { passive: false });
+    this.canvas.addEventListener('pointerup', this.onUp, { passive: false });
+    this.canvas.addEventListener('pointercancel', this.onCancel, { passive: false });
   }
 
   disable(): void {
@@ -92,9 +93,11 @@ export class TouchInput {
     this.onDown = this.onMove = this.onUp = this.onCancel = null;
     this.touches.clear();
     this.lastTapTime = 0;
+    this.blocked = false;
   }
 
   setBlocked(blocked: boolean): void {
+    this.blocked = blocked;
     if (blocked) {
       this.touches.clear();
       this.lastTapTime = 0;
@@ -102,7 +105,12 @@ export class TouchInput {
   }
 
   private handleDown(e: PointerEvent): void {
-    if (e.pointerType !== 'touch') return;
+    if (e.pointerType !== 'touch' || this.blocked) return;
+    const worldPos = this.toWorldPosition(e);
+    if (
+      worldPos.x < BOARD_X || worldPos.x >= BOARD_X + BOARD_WIDTH ||
+      worldPos.y < BOARD_Y || worldPos.y >= BOARD_Y + BOARD_HEIGHT
+    ) return;
     e.preventDefault();
     this.touches.set(e.pointerId, {
       id: e.pointerId,
@@ -129,10 +137,7 @@ export class TouchInput {
     if (dy < -SWIPE_THRESHOLD && absDy > absDx) {
       t.firedSwipeOrDrop = true;
       e.preventDefault();
-      const rect = this.canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      const worldPos = this.engine.screenToWorldCoordinates(new ex.Vector(screenX, screenY));
+      const worldPos = this.toWorldPosition(e);
       this.callbacks.rotate(worldPos.x, worldPos.y);
       return;
     }
@@ -158,6 +163,7 @@ export class TouchInput {
     this.touches.delete(e.pointerId);
 
     if (!t || t.firedSwipeOrDrop) return;
+    e.preventDefault();
 
     const dt = performance.now() - t.startTime;
     const totalDx = Math.abs(e.clientX - t.startX);
@@ -177,5 +183,11 @@ export class TouchInput {
   private fireMove(direction: -1 | 1): void {
     if (direction < 0) this.callbacks.moveLeft();
     else this.callbacks.moveRight();
+  }
+
+  private toWorldPosition(event: PointerEvent): ex.Vector {
+    return this.engine.screen.pageToWorldCoordinates(
+      new ex.Vector(event.pageX, event.pageY)
+    );
   }
 }

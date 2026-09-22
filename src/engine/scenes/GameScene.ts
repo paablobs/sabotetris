@@ -567,6 +567,10 @@ export class GameScene extends ex.Scene {
     const levelScore = this.scoreService.getScore() - this.levelStartScore;
     if (levelScore >= this.levelService.getMaxScore()) {
       this.levelService.advanceLevel();
+      // Preserve the Grid object because active chaos actors hold a reference
+      // to it. Replacing it would let their callbacks affect the new board
+      // based on collisions calculated against the old one.
+      for (const row of this.grid) row.fill(null);
       this.chaosEngine.setLevel(this.levelService.getLevel());
       this.applyLevelVisuals();
       this.levelStartScore = this.scoreService.getScore();
@@ -707,6 +711,24 @@ export class GameScene extends ex.Scene {
       garbageRow.push(Math.random() < 0.3 ? '#556666' : null);
     }
     this.grid[this.grid.length - 1] = garbageRow;
+    if (!this.currentPiece) return;
+
+    while (!isValidPosition(
+      this.grid,
+      this.currentPiece.shape,
+      this.currentPiece.row,
+      this.currentPiece.col
+    )) {
+      this.currentPiece.row--;
+      const stillOnBoard = this.currentPiece.shape.some((row, rowIndex) =>
+        row.some((cell) => cell !== 0 && this.currentPiece!.row + rowIndex >= 0)
+      );
+      if (!stillOnBoard) {
+        this.endGame();
+        return;
+      }
+    }
+    this.updateBoardDisplay();
   }
 
   private spawnSpaceInvader(): void {

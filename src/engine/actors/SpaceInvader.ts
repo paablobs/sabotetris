@@ -24,6 +24,7 @@ export class SpaceInvaderActor extends ex.Actor {
   private readonly shotInterval = 1500;
   private alive = true;
   private readonly onBlockDestroyed?: (row: number, col: number) => void;
+  private readonly bullets = new Set<InvaderBullet>();
 
   constructor(grid: Grid, onBlockDestroyed?: (row: number, col: number) => void) {
     const startX = BOARD_X + 40 + Math.random() * (BOARD_WIDTH - 80);
@@ -74,13 +75,30 @@ export class SpaceInvaderActor extends ex.Actor {
 
     if (this.shotsFired >= this.maxShots) {
       this.alive = false;
-      this.kill();
+      // Keep already-fired bullets alive for the rest of this game. The scene
+      // still retains this actor and calls kill() during reset/deactivation,
+      // which cleans up any bullets that remain at that point.
+      super.kill();
     }
+  }
+
+  kill(): void {
+    this.alive = false;
+    for (const bullet of this.bullets) bullet.kill();
+    this.bullets.clear();
+    super.kill();
   }
 
   private fireBullet(): void {
     this.shotsFired++;
-    const bullet = new InvaderBullet(this.pos.x, this.pos.y + 28, this.grid, this.onBlockDestroyed);
+    const bullet = new InvaderBullet(
+      this.pos.x,
+      this.pos.y + 28,
+      this.grid,
+      this.onBlockDestroyed,
+      (finishedBullet) => this.bullets.delete(finishedBullet)
+    );
+    this.bullets.add(bullet);
     this.scene?.add(bullet);
   }
 }
@@ -90,7 +108,15 @@ class InvaderBullet extends ex.Actor {
   private speed = 300;
   private readonly onBlockDestroyed?: (row: number, col: number) => void;
 
-  constructor(x: number, y: number, grid: Grid, onBlockDestroyed?: (row: number, col: number) => void) {
+  private readonly onKilled: (bullet: InvaderBullet) => void;
+
+  constructor(
+    x: number,
+    y: number,
+    grid: Grid,
+    onBlockDestroyed: ((row: number, col: number) => void) | undefined,
+    onKilled: (bullet: InvaderBullet) => void
+  ) {
     super({
       x,
       y,
@@ -100,6 +126,12 @@ class InvaderBullet extends ex.Actor {
     });
     this.grid = grid;
     this.onBlockDestroyed = onBlockDestroyed;
+    this.onKilled = onKilled;
+  }
+
+  kill(): void {
+    this.onKilled(this);
+    super.kill();
   }
 
   onInitialize(): void {

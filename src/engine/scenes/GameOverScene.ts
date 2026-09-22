@@ -2,6 +2,7 @@ import * as ex from 'excalibur';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import { RankingService } from '../services/RankingService';
 import { audio } from '../services/AudioService';
+import { isMobile } from '../services/MobileService';
 
 /**
  * GameOverScene shows final score, level reached, and name input for ranking.
@@ -17,6 +18,9 @@ export class GameOverScene extends ex.Scene {
   private rankingService = new RankingService();
   private overlayActor!: ex.Actor;
   private clickHandler: (() => void) | null = null;
+  private mobileControls: HTMLDivElement | null = null;
+  private mobileForm: HTMLFormElement | null = null;
+  private mobileResizeObserver: ResizeObserver | null = null;
 
   onInitialize(): void {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
@@ -48,6 +52,127 @@ export class GameOverScene extends ex.Scene {
     this.saved = false;
 
     this.removeClickHandler();
+    this.removeMobileControls();
+    if (isMobile) this.createMobileControls();
+  }
+
+  onDeactivate(): void {
+    this.removeClickHandler();
+    this.removeMobileControls();
+  }
+
+  private createMobileControls(): void {
+    const container = this.engine?.canvas.parentElement;
+    if (!container) return;
+
+    const controls = document.createElement('div');
+    controls.style.cssText = [
+      'position:absolute', 'inset:0', 'z-index:2', 'pointer-events:none',
+    ].join(';');
+
+    const form = document.createElement('form');
+    form.style.cssText = [
+      'position:absolute', 'transform:translate(-50%,-50%)',
+      'display:flex', 'gap:8px', 'pointer-events:auto',
+    ].join(';');
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 10;
+    input.autocomplete = 'off';
+    input.autocapitalize = 'characters';
+    input.enterKeyHint = 'done';
+    input.setAttribute('aria-label', 'Player name');
+    input.placeholder = 'Your name';
+    input.style.cssText = [
+      'min-width:0', 'flex:1', 'height:42px', 'padding:0 10px', 'font-size:16px',
+      'font-family:monospace', 'color:#ddeeff', 'background:#2a3a5c',
+      'border:1px solid #4a6a8a', 'border-radius:4px',
+    ].join(';');
+
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.textContent = 'SAVE';
+    save.style.cssText = this.mobileButtonStyle('#267a55');
+
+    const exit = document.createElement('button');
+    exit.type = 'button';
+    exit.textContent = 'EXIT';
+    exit.style.cssText = `${this.mobileButtonStyle('#394b68')};position:absolute;transform:translate(-50%,-50%);pointer-events:auto`;
+
+    input.addEventListener('input', () => {
+      this.playerName = input.value.replace(/[^-a-zA-Z0-9 .,]/g, '').slice(0, 10);
+      input.value = this.playerName;
+      save.disabled = this.playerName.trim().length === 0;
+    });
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (this.playerName.trim().length > 0) this.saveScore();
+    });
+    exit.addEventListener('click', () => {
+      audio.playSfx('click');
+      this.engine?.goToScene('menu');
+    });
+
+    form.append(input, save);
+    controls.append(form, exit);
+    container.append(controls);
+    this.mobileControls = controls;
+    this.mobileForm = form;
+    save.disabled = true;
+
+    const positionControls = () => this.positionMobileControls(container, form, exit);
+    this.mobileResizeObserver = new ResizeObserver(positionControls);
+    this.mobileResizeObserver.observe(container);
+    requestAnimationFrame(positionControls);
+  }
+
+  private mobileButtonStyle(background: string): string {
+    return [
+      'min-width:68px', 'height:42px', 'padding:0 12px', 'border:0', 'border-radius:4px',
+      'font: bold 14px monospace', 'color:#fff', `background:${background}`,
+    ].join(';');
+  }
+
+  private removeMobileControls(): void {
+    this.mobileResizeObserver?.disconnect();
+    this.mobileResizeObserver = null;
+    this.mobileControls?.remove();
+    this.mobileControls = null;
+    this.mobileForm = null;
+  }
+
+  private updateMobileControls(): void {
+    if (!this.mobileForm) return;
+    this.mobileForm.hidden = this.saved;
+  }
+
+  private positionMobileControls(
+    container: HTMLElement,
+    form: HTMLFormElement,
+    exit: HTMLButtonElement
+  ): void {
+    const containerRect = container.getBoundingClientRect();
+    const containerPageX = containerRect.left + window.scrollX;
+    const containerPageY = containerRect.top + window.scrollY;
+    const formCenter = this.engine.screen.worldToPageCoordinates(
+      new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 58)
+    );
+    const formLeft = this.engine.screen.worldToPageCoordinates(
+      new ex.Vector(CANVAS_WIDTH / 2 - 150, 0)
+    );
+    const formRight = this.engine.screen.worldToPageCoordinates(
+      new ex.Vector(CANVAS_WIDTH / 2 + 150, 0)
+    );
+    const exitCenter = this.engine.screen.worldToPageCoordinates(
+      new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 126)
+    );
+
+    form.style.left = `${formCenter.x - containerPageX}px`;
+    form.style.top = `${formCenter.y - containerPageY}px`;
+    form.style.width = `${Math.abs(formRight.x - formLeft.x)}px`;
+    exit.style.left = `${exitCenter.x - containerPageX}px`;
+    exit.style.top = `${exitCenter.y - containerPageY}px`;
   }
 
   private readonly LETTER_KEYS = [
@@ -71,6 +196,10 @@ export class GameOverScene extends ex.Scene {
   ];
 
   onPreUpdate(engine: ex.Engine): void {
+    // On touch devices the HTML form owns text input. Processing the same
+    // virtual-keyboard events through Excalibur would duplicate characters.
+    if (isMobile) return;
+
     const kb = engine.input.keyboard;
 
     if (kb.wasPressed(ex.Input.Keys.Escape)) {
@@ -177,13 +306,13 @@ export class GameOverScene extends ex.Scene {
       ctx.fillStyle = '#556677';
       ctx.font = '11px monospace';
       ctx.fillText(
-        'Press ENTER to save',
+        isMobile ? 'Tap SAVE to record' : 'Press ENTER to save',
         CANVAS_WIDTH / 2,
         CANVAS_HEIGHT / 2 + 100
       );
       ctx.fillStyle = '#445566';
       ctx.fillText(
-        'Press ESC to exit',
+        isMobile ? 'Tap EXIT to leave' : 'Press ESC to exit',
         CANVAS_WIDTH / 2,
         CANVAS_HEIGHT / 2 + 120
       );
@@ -194,11 +323,12 @@ export class GameOverScene extends ex.Scene {
 
       ctx.fillStyle = '#ddeeff';
       ctx.font = '14px monospace';
-      ctx.fillText('Click to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+      ctx.fillText(isMobile ? 'Tap EXIT to continue' : 'Click to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
     }
   }
 
   private saveScore(): void {
+    if (this.saved || this.playerName.trim().length === 0) return;
     this.rankingService.addEntry({
       playerName: this.playerName,
       score: this.score,
@@ -207,6 +337,7 @@ export class GameOverScene extends ex.Scene {
       mode: this.mode,
     });
     this.saved = true;
+    this.updateMobileControls();
     this.addClickHandler();
   }
 
