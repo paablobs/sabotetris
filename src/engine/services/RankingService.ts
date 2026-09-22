@@ -1,7 +1,10 @@
-import type { ScoreEntry } from '../../types';
+import type { ScoreEntry } from '../../types/index.ts';
 
 const STORAGE_KEY = 'sabotetris_ranking';
 const MAX_ENTRIES = 20;
+const MAX_PLAYER_NAME_LENGTH = 10;
+const MAX_DATE_LENGTH = 64;
+const HARDCORE_LEVEL = 11;
 
 /**
  * RankingService manages the top-score leaderboard stored in localStorage.
@@ -12,7 +15,9 @@ export class RankingService {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
       if (!data) return [];
-      const entries: ScoreEntry[] = JSON.parse(data);
+      const parsed: unknown = JSON.parse(data);
+      if (!Array.isArray(parsed)) return [];
+      const entries = parsed.filter(isScoreEntry).map(normalizeEntry);
       return entries.sort((a, b) => b.score - a.score);
     } catch {
       return [];
@@ -20,6 +25,7 @@ export class RankingService {
   }
 
   addEntry(entry: ScoreEntry): void {
+    if (!isScoreEntry(entry)) return;
     const entries = this.getRanking();
     // Backward-compat: entries without mode default to softcore
     const normalized = entry.mode ? entry : { ...entry, mode: 'softcore' as const };
@@ -39,4 +45,26 @@ export class RankingService {
   clear(): void {
     localStorage.removeItem(STORAGE_KEY);
   }
+}
+
+function isScoreEntry(value: unknown): value is ScoreEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const entry = value as Partial<ScoreEntry>;
+  return (
+    typeof entry.playerName === 'string' &&
+    entry.playerName.trim().length > 0 &&
+    entry.playerName.length <= MAX_PLAYER_NAME_LENGTH &&
+    /^[-a-zA-Z0-9 .,]+$/.test(entry.playerName) &&
+    typeof entry.score === 'number' && Number.isSafeInteger(entry.score) && entry.score >= 0 &&
+    typeof entry.level === 'number' && Number.isInteger(entry.level) &&
+    entry.level >= 1 &&
+    (entry.mode === 'hardcore' ? entry.level === HARDCORE_LEVEL : entry.level < HARDCORE_LEVEL) &&
+    typeof entry.date === 'string' &&
+    entry.date.trim().length > 0 && entry.date.length <= MAX_DATE_LENGTH &&
+    (entry.mode === undefined || entry.mode === 'softcore' || entry.mode === 'hardcore')
+  );
+}
+
+function normalizeEntry(entry: ScoreEntry): ScoreEntry {
+  return entry.mode ? entry : { ...entry, mode: 'softcore' };
 }

@@ -9,6 +9,7 @@
     "prebuild": "node scripts/version.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
     "version:gen": "node scripts/version.mjs",
     "preview": "vite preview"
   },

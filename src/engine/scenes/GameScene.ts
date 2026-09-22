@@ -21,6 +21,7 @@ import { isMobile, TouchInput } from '../services/MobileService';
 import { audio } from '../services/AudioService';
 import { createMuteButton } from '../actors/MuteButton';
 import { createVolumeSlider } from '../actors/VolumeSlider';
+type GameMode = 'softcore' | 'hardcore';
 
 export class GameScene extends ex.Scene {
   private grid: Grid;
@@ -61,7 +62,7 @@ export class GameScene extends ex.Scene {
 
   private pauseOverlayActor!: ex.Actor;
 
-  private mode: 'softcore' | 'hardcore' = 'softcore';
+  private mode: GameMode = 'softcore';
   private dvdActor: DVDActor | null = null;
   private spawnedActors: ex.Actor[] = [];
 
@@ -160,7 +161,7 @@ export class GameScene extends ex.Scene {
     }
     this.touchInput?.enable();
 
-    const data = _context.data as { mode?: 'softcore' | 'hardcore' } | undefined;
+    const data = _context.data as { mode?: GameMode } | undefined;
     this.mode = data?.mode ?? 'softcore';
 
     this.resetGame();
@@ -215,7 +216,6 @@ export class GameScene extends ex.Scene {
     this.nextChaosInterval = this.mode === 'hardcore' ? Math.random() * 4 + 1 : this.getChaosInterval();
     this.softDropping = false;
     this.keyRepeatDelay = this.KEY_REPEAT;
-    this.highestReachedLevel = 1;
     for (const actor of this.spawnedActors) {
       actor.kill();
     }
@@ -226,6 +226,7 @@ export class GameScene extends ex.Scene {
     if (this.mode === 'hardcore') {
       this.levelService.enableHardcoreMode();
     }
+    this.highestReachedLevel = this.levelService.getLevel();
     this.levelStartScore = 0;
     this.levelStartLines = 0;
     this.chaosEngine.setLevel(this.levelService.getLevel());
@@ -567,10 +568,6 @@ export class GameScene extends ex.Scene {
     const levelScore = this.scoreService.getScore() - this.levelStartScore;
     if (levelScore >= this.levelService.getMaxScore()) {
       this.levelService.advanceLevel();
-      // Preserve the Grid object because active chaos actors hold a reference
-      // to it. Replacing it would let their callbacks affect the new board
-      // based on collisions calculated against the old one.
-      for (const row of this.grid) row.fill(null);
       this.chaosEngine.setLevel(this.levelService.getLevel());
       this.applyLevelVisuals();
       this.levelStartScore = this.scoreService.getScore();

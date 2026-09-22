@@ -1,5 +1,6 @@
 import * as ex from 'excalibur';
 import { BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT } from '../../types';
+import { TapTracker } from './TouchGestureState';
 
 /**
  * Mobile detection + touch gesture input for the GameScene.
@@ -49,8 +50,6 @@ interface ActiveTouch {
 const SWIPE_THRESHOLD = 32;
 const TAP_MAX_DURATION_MS = 300;
 const TAP_MAX_MOVE = 10;
-const DOUBLE_TAP_MS = 300;
-
 export class TouchInput {
   private readonly canvas: HTMLCanvasElement;
   private readonly engine: ex.Engine;
@@ -62,7 +61,7 @@ export class TouchInput {
   private onCancel: ((e: PointerEvent) => void) | null = null;
   private enabled = false;
   private blocked = false;
-  private lastTapTime = 0;
+  private readonly tapTracker = new TapTracker();
 
   constructor(canvas: HTMLCanvasElement, engine: ex.Engine, callbacks: TouchInputCallbacks) {
     this.canvas = canvas;
@@ -76,7 +75,7 @@ export class TouchInput {
     this.onDown = (e) => this.handleDown(e);
     this.onMove = (e) => this.handleMove(e);
     this.onUp = (e) => this.handleUp(e);
-    this.onCancel = (e) => this.handleUp(e);
+    this.onCancel = (e) => this.handleCancel(e);
     this.canvas.addEventListener('pointerdown', this.onDown, { passive: false });
     this.canvas.addEventListener('pointermove', this.onMove, { passive: false });
     this.canvas.addEventListener('pointerup', this.onUp, { passive: false });
@@ -92,7 +91,7 @@ export class TouchInput {
     if (this.onCancel) this.canvas.removeEventListener('pointercancel', this.onCancel);
     this.onDown = this.onMove = this.onUp = this.onCancel = null;
     this.touches.clear();
-    this.lastTapTime = 0;
+    this.tapTracker.reset();
     this.blocked = false;
   }
 
@@ -100,7 +99,7 @@ export class TouchInput {
     this.blocked = blocked;
     if (blocked) {
       this.touches.clear();
-      this.lastTapTime = 0;
+      this.tapTracker.reset();
     }
   }
 
@@ -172,12 +171,16 @@ export class TouchInput {
     if (totalDx > TAP_MAX_MOVE || totalDy > TAP_MAX_MOVE) return;
 
     const now = performance.now();
-    if (now - this.lastTapTime < DOUBLE_TAP_MS) {
+    if (this.tapTracker.registerTap(now)) {
       this.callbacks.hardDrop();
-      this.lastTapTime = 0;
-    } else {
-      this.lastTapTime = now;
     }
+  }
+
+  private handleCancel(e: PointerEvent): void {
+    if (e.pointerType !== 'touch') return;
+    const hadTouch = this.touches.delete(e.pointerId);
+    if (hadTouch) e.preventDefault();
+    this.tapTracker.cancel();
   }
 
   private fireMove(direction: -1 | 1): void {
