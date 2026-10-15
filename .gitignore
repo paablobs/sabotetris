@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
 
 # Generated at build/dev time
 src/generated/

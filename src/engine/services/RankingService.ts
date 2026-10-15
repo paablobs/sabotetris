@@ -8,35 +8,42 @@ const HARDCORE_LEVEL = 11;
 
 /**
  * RankingService manages the top-score leaderboard stored in localStorage.
- * Keeps up to 20 entries sorted by score descending.
+ * Keeps up to 20 entries per mode, without changing the legacy storage key.
  */
 export class RankingService {
-  getRanking(): ScoreEntry[] {
+  getRanking(mode?: 'softcore' | 'hardcore'): ScoreEntry[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
       if (!data) return [];
       const parsed: unknown = JSON.parse(data);
       if (!Array.isArray(parsed)) return [];
       const entries = parsed.filter(isScoreEntry).map(normalizeEntry);
-      return entries.sort((a, b) => b.score - a.score);
+      const sorted = entries.sort((a, b) => b.score - a.score);
+      const bounded = ['softcore', 'hardcore'].flatMap(current =>
+        sorted.filter(entry => entry.mode === current).slice(0, MAX_ENTRIES));
+      return bounded.filter(entry => !mode || entry.mode === mode).sort((a, b) => b.score - a.score);
     } catch {
       return [];
     }
   }
 
-  addEntry(entry: ScoreEntry): void {
-    if (!isScoreEntry(entry)) return;
+  addEntry(entry: ScoreEntry): boolean {
+    if (!isScoreEntry(entry)) return false;
     const entries = this.getRanking();
     // Backward-compat: entries without mode default to softcore
     const normalized = entry.mode ? entry : { ...entry, mode: 'softcore' as const };
     entries.push(normalized);
     entries.sort((a, b) => b.score - a.score);
-    const trimmed = entries.slice(0, MAX_ENTRIES);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    const trimmed = ['softcore', 'hardcore'].flatMap(mode =>
+      entries.filter(item => item.mode === mode).slice(0, MAX_ENTRIES));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      return true;
+    } catch { return false; }
   }
 
-  isHighScore(score: number): boolean {
-    const entries = this.getRanking();
+  isHighScore(score: number, mode: 'softcore' | 'hardcore' = 'softcore'): boolean {
+    const entries = this.getRanking(mode);
     if (entries.length < MAX_ENTRIES) return true;
     const minScore = Math.min(...entries.map(e => e.score));
     return score > minScore;

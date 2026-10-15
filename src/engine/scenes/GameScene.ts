@@ -20,6 +20,8 @@ import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
 import { audio } from '../services/AudioService';
 import { AudioControls } from '../actors/AudioControls';
+import { onlineRanking, prepareOnlineRun } from '../services/OnlineRanking';
+import type { RankedRun } from '../services/RemoteRankingService';
 type GameMode = 'softcore' | 'hardcore';
 
 export class GameScene extends ex.Scene {
@@ -42,6 +44,10 @@ export class GameScene extends ex.Scene {
   private chaosAccum = 0;
   private nextChaosInterval = 5;
   private gameOver = false;
+  private rankedRun: RankedRun | null = null;
+  private rankedEligible = true;
+  private onlinePreparing = false;
+  private onlineController: AbortController | null = null;
   private paused = false;
   private softDropping = false;
 
@@ -183,6 +189,9 @@ export class GameScene extends ex.Scene {
   }
 
   onDeactivate(): void {
+    this.onlineController?.abort();
+    this.onlineController = null;
+    this.onlinePreparing = false;
     this.currentPiece = null;
     this.touchInput?.disable();
     audio.stopMusic();
@@ -201,6 +210,13 @@ export class GameScene extends ex.Scene {
   }
 
   private resetGame(): void {
+    this.onlineController?.abort();
+    const controller = new AbortController();
+    this.onlineController = controller;
+    this.onlinePreparing = onlineRanking.configured;
+    this.rankedRun = null;
+    this.rankedEligible = true;
+    this.touchInput?.setBlocked(this.onlinePreparing);
     this.grid = createEmptyGrid();
     this.gameOver = false;
     this.ignoreInput = false;
@@ -236,10 +252,17 @@ export class GameScene extends ex.Scene {
 
     this.updateSidePanel();
     this.updateBoardDisplay();
+    void prepareOnlineRun(this.mode, controller.signal).then(run => {
+      if (this.onlineController !== controller || controller.signal.aborted) return;
+      this.rankedRun = run;
+      this.onlinePreparing = false;
+      this.touchInput?.setBlocked(this.paused || this.gameOver);
+      this.sidePanel.setChaosEffect(run ? 'GLOBAL ELIGIBLE' : 'LOCAL ONLY', 2500);
+    });
   }
 
   onPreUpdate(_engine: ex.Engine, delta: number): void {
-    if (this.gameOver) {
+    if (this.gameOver || this.onlinePreparing) {
       this.touchInput?.setBlocked(true);
       return;
     }
@@ -491,8 +514,10 @@ export class GameScene extends ex.Scene {
     if (this.paused || this.gameOver) return;
 
     if (kb.wasPressed(ex.Input.Keys.BracketRight)) {
+      this.rankedEligible = false;
       this.scoreService.addScore(1000);
     } else if (kb.wasPressed(ex.Input.Keys.BracketLeft)) {
+      this.rankedEligible = false;
       this.scoreService.addScore(1000);
     }
   }
@@ -672,6 +697,8 @@ export class GameScene extends ex.Scene {
         score: this.scoreService.getScore(),
         level: this.highestReachedLevel,
         mode: this.mode,
+        rankedRun: this.rankedEligible ? this.rankedRun : null,
+        localReason: this.rankedEligible ? 'Offline / local selected' : 'Debug points used',
       },
     });
   }

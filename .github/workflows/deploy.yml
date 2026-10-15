@@ -33,11 +33,21 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run PostgreSQL integration tests
+        run: npm run test:db
+
+      - name: Check Edge Functions
+        run: npm run check:edge
+
       - name: Run lint
         run: npm run lint
 
       - name: Build project
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
 
       - name: Upload production-ready build files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
