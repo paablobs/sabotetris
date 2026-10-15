@@ -10,10 +10,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:db": "bash scripts/test-db.sh",
+    "check:edge": "npx --yes deno@2.9.6 check --no-lock supabase/functions/start-run/index.ts supabase/functions/submit-score/index.ts",
     "version:gen": "node scripts/version.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "excalibur": "^0.29.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

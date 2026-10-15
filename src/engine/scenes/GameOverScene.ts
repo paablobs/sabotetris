@@ -3,6 +3,8 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../types';
 import { RankingService } from '../services/RankingService';
 import { audio } from '../services/AudioService';
 import { isMobile } from '../services/MobileService';
+import { onlineRanking } from '../services/OnlineRanking';
+import type { RankedRun, Submission } from '../services/RemoteRankingService';
 
 /**
  * GameOverScene shows final score, level reached, and name input for ranking.
@@ -15,6 +17,13 @@ export class GameOverScene extends ex.Scene {
   private mode: 'softcore' | 'hardcore' = 'softcore';
   private playerName = '';
   private saved = false;
+  private localSaved = false;
+  private rankedRun: RankedRun | null = null;
+  private localReason = '';
+  private publication: 'local' | 'sending' | 'published' | 'outside' | 'error' = 'local';
+  private submission: Submission | null = null;
+  private generation = 0;
+  private retryButton: HTMLButtonElement | null = null;
   private rankingService = new RankingService();
   private overlayActor!: ex.Actor;
   private clickHandler: (() => void) | null = null;
@@ -42,7 +51,16 @@ export class GameOverScene extends ex.Scene {
   }
 
   onActivate(context: ex.SceneActivationContext<unknown>): void {
-    const data = context.data as { score: number; level: number; mode?: 'softcore' | 'hardcore' } | undefined;
+    const data = context.data as {
+      score: number; level: number; mode?: 'softcore' | 'hardcore';
+      rankedRun?: RankedRun | null; localReason?: string;
+    } | undefined;
+    this.generation++;
+    this.rankedRun = data?.rankedRun ?? null;
+    this.localReason = data?.localReason ?? 'Local game';
+    this.publication = 'local';
+    this.submission = null;
+    this.localSaved = false;
     if (data) {
       this.score = data.score;
       this.level = data.level;
@@ -54,9 +72,19 @@ export class GameOverScene extends ex.Scene {
     this.removeClickHandler();
     this.removeMobileControls();
     if (isMobile) this.createMobileControls();
+    this.retryButton?.remove();
+    this.retryButton = document.createElement('button');
+    this.retryButton.textContent = 'RETRY GLOBAL UPLOAD (R)';
+    this.retryButton.style.cssText = `${this.mobileButtonStyle('#267a55')};position:absolute;left:50%;bottom:12%;transform:translateX(-50%);z-index:3;cursor:pointer`;
+    this.retryButton.hidden = true;
+    this.retryButton.onclick = () => { void this.publishScore(); };
+    this.engine.canvas.parentElement?.append(this.retryButton);
   }
 
   onDeactivate(): void {
+    this.generation++;
+    this.retryButton?.remove();
+    this.retryButton = null;
     this.removeClickHandler();
     this.removeMobileControls();
   }
@@ -207,7 +235,10 @@ export class GameOverScene extends ex.Scene {
       return;
     }
 
-    if (this.saved) return;
+    if (this.saved) {
+      if (kb.wasPressed(ex.Input.Keys.R)) void this.publishScore();
+      return;
+    }
 
     for (let i = 0; i < 26; i++) {
       if (kb.wasPressed(this.LETTER_KEYS[i])) {
@@ -319,26 +350,53 @@ export class GameOverScene extends ex.Scene {
     } else {
       ctx.fillStyle = '#6BB86B';
       ctx.font = '18px monospace';
-      ctx.fillText('Score saved!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
-
+      ctx.fillText(this.localSaved ? 'Saved locally' : 'Local storage unavailable', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 35);
+      const messages = {
+        local: `Not published: ${this.localReason}`,
+        sending: 'Publishing globally…',
+        published: 'Published in the global ranking',
+        outside: 'Accepted — outside the global top 20',
+        error: 'Upload failed — offline / expired / limited',
+      };
+      ctx.fillStyle = this.publication === 'error' ? '#ff9977' : '#8899aa';
+      ctx.font = '12px monospace';
+      ctx.fillText(messages[this.publication], CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 65);
       ctx.fillStyle = '#ddeeff';
       ctx.font = '14px monospace';
-      ctx.fillText(isMobile ? 'Tap EXIT to continue' : 'Click to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+      ctx.fillText(isMobile ? 'Tap EXIT to continue' : 'Click / ESC to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
     }
   }
 
   private saveScore(): void {
     if (this.saved || this.playerName.trim().length === 0) return;
-    this.rankingService.addEntry({
-      playerName: this.playerName,
+    this.localSaved = this.rankingService.addEntry({
+      playerName: this.playerName.trim(),
       score: this.score,
       level: this.level,
       date: new Date().toLocaleDateString(),
       mode: this.mode,
     });
     this.saved = true;
+    this.submission = { playerName: this.playerName.trim(), score: this.score, level: this.level, mode: this.mode };
     this.updateMobileControls();
     this.addClickHandler();
+    void this.publishScore();
+  }
+
+  private async publishScore(): Promise<void> {
+    if (!this.rankedRun || !this.submission || !['local', 'error'].includes(this.publication)) return;
+    const generation = this.generation;
+    this.publication = 'sending';
+    if (this.retryButton) this.retryButton.hidden = true;
+    try {
+      const receipt = await onlineRanking.submit(this.rankedRun, this.submission);
+      if (generation !== this.generation) return;
+      this.publication = receipt.inTop ? 'published' : 'outside';
+    } catch {
+      if (generation !== this.generation) return;
+      this.publication = 'error';
+      if (this.retryButton) this.retryButton.hidden = false;
+    }
   }
 
   private addClickHandler(): void {

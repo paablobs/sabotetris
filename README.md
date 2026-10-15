@@ -67,7 +67,7 @@ Detected automatically on touch devices with a coarse pointer.
 - **Runtime** — [Excalibur.js](https://excaliburjs.com) v0.29
 - **UI Shell** — React 19 + Vite
 - **Audio** — Procedural 8-bit chiptune via Web Audio API (no binary assets)
-- **Persistence** — localStorage for rankings
+- **Persistence** — localStorage (offline) + optional PostgreSQL global rankings via Supabase
 
 ## Project Structure
 
@@ -92,6 +92,17 @@ npm run dev
 ```
 
 Open the URL printed by Vite (default `http://localhost:5173`).
+
+## Optional global ranking (PostgreSQL / Supabase)
+
+The game works locally without credentials. To enable global top-20 rankings per
+mode, follow the [setup and operations guide (Spanish)](docs/supabase-setup.md).
+It covers the Free plan, migrations, Edge Functions, anonymous Auth/CAPTCHA,
+GitHub Pages variables, backups, and the manual acceptance checklist.
+
+Checks: `npm test`, `npm run test:db` (Docker), `npm run check:edge`,
+`npm run lint`, `npm run build`. The global leaderboard is recreational: the
+server validates submissions, not the authenticity of client-calculated scores.
 
 ## Versioning
 
