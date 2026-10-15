@@ -1,5 +1,5 @@
 import * as ex from 'excalibur';
-import { PANEL_X, BOARD_Y, PANEL_WIDTH, PANEL_HEIGHT } from '../../types';
+import { PANEL_X, SIDE_PANEL_Y, PANEL_WIDTH, PANEL_HEIGHT } from '../../types';
 import { TETROMINOES } from '../../data/tetrominoes';
 import type { TetrominoType } from '../../types';
 
@@ -20,7 +20,7 @@ export class SidePanel extends ex.Actor {
   constructor() {
     super({
       x: PANEL_X,
-      y: BOARD_Y,
+      y: SIDE_PANEL_Y,
       width: PANEL_WIDTH,
       height: PANEL_HEIGHT,
       anchor: ex.Vector.Zero,

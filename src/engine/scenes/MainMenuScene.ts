@@ -7,8 +7,7 @@ import {
   ADMIN_TAP_WINDOW_MS,
 } from '../services/AdminService';
 import { audio } from '../services/AudioService';
-import { createMuteButton } from '../actors/MuteButton';
-import { createVolumeSlider } from '../actors/VolumeSlider';
+import { AudioControls } from '../actors/AudioControls';
 
 const TUTORIAL_STORAGE_KEY = 'sabotetris:seenTutorial';
 
@@ -26,8 +25,7 @@ export class MainMenuScene extends ex.Scene {
     this.camera.pos = new ex.Vector(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     this.add(this.createLogo());
     this.add(this.createVersion());
-    this.add(createMuteButton());
-    this.add(createVolumeSlider());
+    this.add(new AudioControls());
     this.add(this.createButton(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40, 200, 50, 'PLAY', () => {
       this.engine?.goToScene('game', { sceneActivationData: { mode: 'softcore' } });
     }));

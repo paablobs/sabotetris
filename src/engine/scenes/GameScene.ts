@@ -19,8 +19,7 @@ import { SpaceInvaderActor } from '../actors/SpaceInvader';
 import { admin } from '../services/AdminService';
 import { isMobile, TouchInput } from '../services/MobileService';
 import { audio } from '../services/AudioService';
-import { createMuteButton } from '../actors/MuteButton';
-import { createVolumeSlider } from '../actors/VolumeSlider';
+import { AudioControls } from '../actors/AudioControls';
 type GameMode = 'softcore' | 'hardcore';
 
 export class GameScene extends ex.Scene {
@@ -90,8 +89,7 @@ export class GameScene extends ex.Scene {
     this.pauseOverlayActor.z = 100;
     this.add(this.pauseOverlayActor);
 
-    this.add(createMuteButton());
-    this.add(createVolumeSlider());
+    this.add(new AudioControls());
 
     if (isMobile) {
       const canvas = engine.canvas;
