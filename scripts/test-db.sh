@@ -8,13 +8,15 @@ trap 'docker stop "$name" >/dev/null 2>&1 || true' EXIT
 # Pin the tested PostgreSQL image; override explicitly when testing an upgrade.
 image="${POSTGRES_TEST_IMAGE:-postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea}"
 docker run --rm -d --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust "$image" >/dev/null
+# The image starts a socket-only temporary server during initialization. Wait for
+# TCP so readiness cannot succeed before that server stops and the final one starts.
 ready=false
 for _ in {1..60}; do
-  if docker exec "$name" pg_isready -U postgres >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$name" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then ready=true; break; fi
   sleep 0.5
 done
 if [[ "$ready" != true ]]; then printf 'PostgreSQL did not become ready\n' >&2; exit 1; fi
-psql=(docker exec -i "$name" psql -X -v ON_ERROR_STOP=1 -U postgres)
+psql=(docker exec -i "$name" psql -h 127.0.0.1 -X -v ON_ERROR_STOP=1 -U postgres)
 "${psql[@]}" < tests/db/bootstrap.sql >/dev/null
 "${psql[@]}" < supabase/migrations/20260601000000_global_ranking.sql >/dev/null
 "${psql[@]}" < tests/db/ranking.sql
