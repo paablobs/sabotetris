@@ -3,6 +3,7 @@ import { requireFreshPointerActivation } from '../../utils/pointerActivation';
 import type { ScoreEntry } from '../../types';
 import { RemoteRankingService } from './RemoteRankingService';
 import type { RankedRun, RankingBackend, RankingMode, Receipt } from './RemoteRankingService';
+import { RULES_VERSION } from '../../../supabase/functions/_shared/game/protocol.ts';
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -45,7 +46,8 @@ function makeBackend(): RankingBackend | null {
       },
       start: async mode => {
         const data = await invoke('start-run', { mode }) as Partial<RankedRun> | null;
-        if (!data || typeof data.id !== 'string' || data.mode !== mode || typeof data.expiresAt !== 'string') throw new Error('Invalid run');
+        if (!data || typeof data.id !== 'string' || data.mode !== mode || typeof data.expiresAt !== 'string' ||
+            typeof data.seed !== 'string' || !/^[a-f0-9]{32}$/.test(data.seed) || data.rulesVersion !== RULES_VERSION) throw new Error('Invalid run');
         return data as RankedRun;
       },
       submit: async (run, result) => {
@@ -54,8 +56,8 @@ function makeBackend(): RankingBackend | null {
         return data as Receipt;
       },
       read: async mode => {
-        const { data, error } = await client.rpc('get_leaderboard', { p_mode: mode });
-        if (error || !Array.isArray(data)) throw new Error('Ranking unavailable');
+        const data = await invoke('leaderboard', { mode });
+        if (!Array.isArray(data)) throw new Error('Ranking unavailable');
         return data.slice(0, 20).map((row: Record<string, unknown>): ScoreEntry => {
           if (typeof row.player_name !== 'string' || !/^[-a-zA-Z0-9 .,]{1,10}$/.test(row.player_name) ||
               typeof row.score !== 'number' || !Number.isSafeInteger(row.score) || row.score < 0 ||

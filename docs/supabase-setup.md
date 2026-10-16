@@ -1,33 +1,56 @@
-# Ranking global gratuito: configuración y operación
+# Ranking global: seguridad y puesta en producción
 
-El juego funciona sin estas variables: sigue guardando localmente y no contacta
-Supabase ni carga CAPTCHA. Configurarlas habilita el ranking global para partidas
-nuevas. No se importan resultados antiguos de localStorage.
+## Qué garantiza esta versión
 
-## 1. Crear los servicios (manual, en tus cuentas)
+**El navegador ya no puede elegir el puntaje que se guarda.** Envía el alias,
+identificador de partida y una secuencia de acciones. El backend reconstruye la
+partida y calcula puntaje/nivel con la misma simulación que usa el juego.
 
-1. En Supabase creá una **organización Free dedicada** y un proyecto para Sabotetris.
-   No cambies la organización a Pro ni contrates complementos. Elegí São Paulo
-   si la audiencia principal es Argentina. Guardá la contraseña en tu gestor.
-2. En la configuración de API obtené la **Project URL** y la **publishable key**
-   (`sb_publishable_...`). No uses la secret key ni `service_role` en el navegador.
-3. En Authentication activá **Anonymous sign-ins**. No hace falta habilitar
-   proveedores sociales, emails ni formularios de acceso. Configurá Site URL como
-   `https://paablobs.github.io/sabotetris/`; este flujo no usa redirects OAuth.
-4. En Cloudflare Turnstile creá un widget Managed. Permití el hostname
-   `paablobs.github.io` (sin protocolo ni `/sabotetris/`) y `localhost` para desarrollo.
-   Copiá la **site key pública** y guardá la **secret key** aparte.
-5. En Authentication → protección contra bots de Supabase activá CAPTCHA,
-   elegí Turnstile y pegá allí la **secret key de Turnstile**. Nunca va en Vite.
-   No publiques la integración sin esta protección activada.
+- El servidor asigna semilla aleatoria, modalidad, versión y vencimiento.
+- No acepta `score`, `level`, semillas ni reglas elegidas por el cliente.
+- Verifica acciones, tiempo disponible, partida terminada, pertenencia y uso único.
+- PostgreSQL permite finalizar únicamente a la función de servidor. Ni la clave
+  pública ni un usuario autenticado pueden insertar resultados o llamar sus RPC.
+- El CAPTCHA **existente de Cloudflare Turnstile se conserva** en Supabase Auth.
+- Sin configuración/conexión, o al elegir SKIP, se juega y guarda localmente.
+  Los resultados locales nunca se importan al ranking global.
 
-Los invitados no tienen contraseña ni recuperación de cuenta. Borrar los datos
-del navegador crea otra identidad y vuelve a pedir CAPTCHA. Los alias no son
-únicos ni identidades verificadas. El alias y resultado del top son públicos.
+Esto valida una **partida reproducible**, no que haya jugado una persona: bots,
+planificación con la semilla, automatización y abuso de cuotas siguen siendo
+posibles. No es una garantía de «inhackeable» ni suficiente para premios monetarios.
+El servicio privilegiado y sus credenciales forman parte de la base de confianza.
 
-## 2. Aplicar PostgreSQL
+## 1. Revisar Supabase y Cloudflare (manual)
 
-Opción recomendada, desde esta rama y con la Supabase CLI instalada:
+En tu proyecto actual, sin recrearlo ni cambiar de plan:
+
+1. Authentication: mantener **Anonymous sign-ins** y **CAPTCHA/Turnstile** activos.
+   La secret key de Turnstile va en Supabase Auth, **nunca** en variables Vite.
+   Revisar también los límites de Auth: el código de ranking no limita solicitudes
+   directas de creación de invitados. La documentación indica 30 registros/hora/IP
+   por defecto; comprobar el valor real en tu panel.
+2. Turnstile: mantener el hostname `paablobs.github.io`, sin protocolo ni ruta.
+   Añadir `localhost` solo si hace falta para desarrollo.
+3. API: usar URL del proyecto y **publishable key** en el frontend; nunca secret
+   key, contraseña PostgreSQL ni `service_role`. Las claves públicas no son secretos.
+4. Data API → esquemas expuestos: **no incluir `private`**. No desactivar RLS ni
+   conceder permisos a `anon`/`authenticated` para resolver errores de publicación.
+5. Seguridad de cuenta: MFA, acceso mínimo a colaboradores y revisión de Security
+   Advisor. No activar funciones/integraciones que no necesitás. Si alguna clave
+   privilegiada estuvo en Git, bundle o logs: rotarla y revisar actividad; borrarla
+   del archivo no revoca una copia robada.
+
+Los invitados no tienen contraseña ni recuperación. Borrar almacenamiento crea
+otra identidad y requiere CAPTCHA otra vez. Los alias no son identidades verificadas.
+
+## 2. Aplicar las migraciones, en orden
+
+**Este cambio reinicia el top global verificado.** Los puntajes anteriores no
+pueden comprobarse retroactivamente: se conservan en `private.ranked_scores`,
+pero dejan de mostrarse como verificados. No se borran ni se migran como legítimos.
+Las partidas abiertas antes del cambio deberán quedar locales/iniciarse de nuevo.
+
+Desde esta rama, con la Supabase CLI:
 
 ```bash
 npx supabase login
@@ -35,56 +58,60 @@ npx supabase link --project-ref TU_PROJECT_REF
 npx supabase db push
 ```
 
-`TU_PROJECT_REF` es el identificador del proyecto, no una contraseña. La CLI
-pedirá autenticación/contraseña localmente; no las pegues en un chat ni en Git.
-La migración está en `supabase/migrations/20260601000000_global_ranking.sql`.
-Si preferís no usar la CLI para SQL, ejecutá **el archivo completo una sola vez**
-en SQL Editor como postgres. No combines ambas vías sin registrar la migración:
-la CLI podría intentar aplicarla de nuevo. No es una migración idempotente.
+No compartir credenciales ni pegarlas en Git/chat. Archivos, en orden:
 
-Después ejecutá **`supabase/schedule.sql`** en SQL Editor como postgres. Habilita
-pg_cron y programa la limpieza diaria. Este segundo archivo sí puede repetirse.
-Comprobá en Cron que existe `sabotetris-cleanup` y que sus ejecuciones terminan bien.
+1. `supabase/migrations/20260601000000_global_ranking.sql`: integración original.
+   **Si ya está aplicada, no volver a ejecutarla.**
+2. `supabase/migrations/20260602000000_verified_ranking.sql`: nuevas reglas,
+   tablas verificadas, cuotas y cierre de la ruta vulnerable.
 
-No agregues `private` a los esquemas expuestos de la API. No habilites inserts
-públicos ni desactives RLS para arreglar errores.
+Alternativa SQL Editor como postgres: ejecutar cada archivo pendiente **completo,
+una sola vez**, respetando el orden. No mezclar con CLI sin registrar/reconciliar
+el historial. Las migraciones no son idempotentes. Hacer primero una prueba en un
+proyecto de staging; conservar backup privado antes del cambio.
 
-## 3. Configurar y desplegar las funciones
+Ejecutar también `supabase/schedule.sql` como postgres si aún no está configurado;
+es repetible. Verificar que Cron `sabotetris-cleanup` existe y termina bien.
 
-Definí dos secretos **solo del backend**, en Edge Functions → Secrets:
+**Orden del despliegue:** SQL → tres Edge Functions → frontend. Hay una ventana
+breve sin publicación online para clientes viejos; es intencional, falla cerrado.
+La antigua `submit_ranked_run` pierde permisos incluso para `service_role` y su
+cuerpo rechaza envíos. No restaurar esa ruta para compatibilidad con clientes viejos.
+
+## 3. Secretos y despliegue de funciones
+
+Edge Functions → Secrets (solo backend):
 
 | Nombre | Valor |
 |---|---|
-| `ALLOWED_ORIGINS` | `https://paablobs.github.io,http://localhost:5173,http://127.0.0.1:5173` |
-| `RATE_LIMIT_SALT` | Un valor aleatorio privado de al menos 32 caracteres, por ejemplo generado con `openssl rand -hex 32` |
+| `ALLOWED_ORIGINS` | `https://paablobs.github.io` |
+| `RATE_LIMIT_SALT` | Aleatorio privado, mínimo 32 caracteres; generar con `openssl rand -hex 32` |
 
-En producción podés dejar únicamente `https://paablobs.github.io`. CORS usa el
-**origen**, sin `/sabotetris/` ni barra final. Quitá orígenes de desarrollo cuando
-no los necesites. La restricción de origen no reemplaza autenticación: un script
-puede falsificar ese header.
+Para desarrollo se pueden agregar `http://localhost:5173,http://127.0.0.1:5173`
+a `ALLOWED_ORIGINS`. Son orígenes sin `/sabotetris/` ni barra final. CORS **no es
+anti-cheat ni autenticación**: un programa puede falsificar `Origin`.
 
-Supabase proporciona automáticamente `SUPABASE_URL` y
-`SUPABASE_SERVICE_ROLE_KEY` a las funciones. No copies ese segundo valor a Pages.
-Si el panel de tu proyecto no lo proporciona, configurá la credencial de servidor
-siguiendo su documentación vigente antes de desplegar; no uses una clave pública.
+Supabase proporciona `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` al backend.
+No copiarlas a Pages/Vite. Las funciones sin configuración fallan cerrado (503).
 
 ```bash
 npx supabase functions deploy start-run --no-verify-jwt
 npx supabase functions deploy submit-score --no-verify-jwt
+npx supabase functions deploy leaderboard --no-verify-jwt
 ```
 
-**Importante:** `verify_jwt = false` es intencional para compatibilidad con claves
-publicables y las claves de firma actuales. **No significa acceso anónimo a las
-escrituras**: los handlers llaman a `auth.getUser(token)` y exigen un usuario
-anónimo real del proyecto antes de ejecutar SQL con la credencial de servidor.
-Los RPC de escritura rechazan `anon` y `authenticated`, incluso con un JWT válido.
+`verify_jwt = false` es intencional para claves publicables y firmas actuales.
+**Las escrituras no son anónimas:** ambos handlers validan el bearer con
+`auth.getUser(token)` y exigen un invitado real del proyecto. La lectura pública
+no necesita sesión, pero pasa por cuotas. `get_leaderboard` ya no es ejecutable
+por `anon`/`authenticated`: no dejar un acceso directo que eluda esas cuotas.
 
-No hay despliegue automático de SQL ni funciones en GitHub Actions: hay que
-aplicar primero la migración, luego las funciones y finalmente el frontend.
+No hay deploy automático de SQL/funciones en GitHub Actions. No se ha desplegado
+nada desde esta rama ni se cambió tu proyecto remoto.
 
-## 4. Configurar el frontend
+## 4. Variables públicas del frontend
 
-Localmente copiá `.env.example` a `.env.local` y completá:
+Conservar las actuales; `.env.example` muestra los nombres:
 
 ```dotenv
 VITE_SUPABASE_URL=https://TU_PROJECT_REF.supabase.co
@@ -92,144 +119,139 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_TU_CLAVE_PUBLICA
 VITE_TURNSTILE_SITE_KEY=TU_SITE_KEY_PUBLICA
 ```
 
-Reiniciá `npm run dev` al cambiar variables. Deben estar **las tres** para activar
-online; vacías o incompletas mantienen el modo local. Cada petición tiene timeout
-de 8 segundos; preparar una partida tiene un máximo de 30 segundos y botón para
-jugar local inmediatamente. La preparación detiene el juego, no consume tiempo
-de caída ni de caos. El CAPTCHA solo se pide si no hay sesión de invitado válida.
+Las tres son públicas y deben existir para activar online. Reiniciar Vite al
+cambiarlas. En GitHub Actions → Variables, configurar las mismas tres; requieren
+nuevo build. Nunca agregar allí credenciales privilegiadas para este flujo.
 
-En GitHub → repositorio → Settings → Secrets and variables → Actions →
-**Variables**, creá las mismas tres variables de repositorio. Son públicas y se
-incluyen en el bundle. No hace falta guardar contraseñas de PostgreSQL ni claves
-de servidor en GitHub. Un cambio de variables requiere un nuevo build.
+La preparación dura como máximo 30s, con botón PLAY LOCAL / SKIP; cada petición
+web tiene timeout de 8s. Se espera la semilla antes de empezar a jugar. Invitados
+con sesión válida no vuelven a resolver CAPTCHA en cada partida.
 
-Esta rama no publica nada por sí sola. El workflow publica Pages únicamente con
-un push a `master`; una PR a `master` ejecuta las comprobaciones. Merge/push y
-publicación requieren tu aprobación, no se hacen automáticamente por el agente.
-
-## 5. Comprobación antes de publicar
+## 5. Pruebas antes de publicar
 
 ```bash
 npm ci
 npm test
-npm run test:db       # Docker; PostgreSQL aislado, sin puertos ni datos del host
-npm run check:edge   # Deno 2.9.6 mediante npx; primera vez necesita red
+npm run test:db       # Docker aislado, sin puertos ni datos del host
+npm run check:edge    # Deno 2.9.6; primera ejecución necesita red
 npm run lint
 npm run build
 npm run dev
 ```
 
-`test:db` valida SQL, privilegios, concurrencia y limpieza con una tabla mínima
-que representa el contrato de Supabase Auth. **No reemplaza probar GoTrue,
-PostgREST, CAPTCHA, gateway ni Cron en tu proyecto real.**
+Las pruebas cubren vectores deterministas, resultados en ambas modalidades,
+payloads manipulados, límites, tiempo, estado terminal, recibos, permisos reales,
+cutover de datos antiguos, cuotas persistentes y concurrencia. PostgreSQL usa
+un contrato mínimo de Auth: **no reemplaza GoTrue/PostgREST/gateway/Turnstile reales**.
 
-Pruebas manuales de aceptación con Supabase configurado:
+En staging y después del deploy, comprobar manualmente:
 
-- En móvil, el toque de PLAY no debe activar por accidente PLAY LOCAL / SKIP;
-  el diálogo debe esperar un CAPTCHA o una acción nueva sobre el botón.
-- Navegador limpio: PLAY, CAPTCHA y partida. Guardar alias: debe distinguir
-  «Saved locally» de «Published» o «Accepted — outside the global top 20».
-- Segundo navegador/dispositivo: ver el mismo top en RANKING → GLOBAL → SOFT/HARD.
-- Invitado ya creado: nueva partida sin volver a resolver CAPTCHA.
-- PLAY LOCAL/SKIP y pérdida de conexión: la partida continúa, sin falsa publicación.
-- Cortar conexión al guardar: aparece RETRY GLOBAL UPLOAD. Reconectar y reintentar
-  sin salir de Game Over: mismo identificador/payload, nunca dos resultados.
-- Cambiar pestaña/modalidad o salir mientras carga: no deben aparecer filas de
-  otra selección ni de una activación anterior.
-- Usar puntos de depuración: el cliente oficial no publica esa partida.
-- Desde un cliente con publishable key, incluso autenticado, intentar llamar
-  `start_ranked_run`, `submit_ranked_run`, `cleanup_ranked_data` o tablas privadas:
-  deben devolver permiso denegado. `get_leaderboard` sí permite leer como invitado.
-- Revisar CORS real y headers de proxy en Supabase. El bucket IP usa el último
-  `x-forwarded-for` como límite suplementario; sin una garantía del proxy no es
-  una identidad confiable y puede agrupar usuarios. Los límites por usuario y
-  globales son independientes. No registrar tokens ni direcciones IP crudas.
-- Verificar Cron y probar restaurar un backup en un proyecto de prueba.
+- Navegador limpio: PLAY → CAPTCHA → partida → SAVE. Comparar puntaje calculado
+  con el local y verlo desde otro dispositivo en GLOBAL → SOFT/HARD.
+- Repetir en móvil, incluidos gestos, pausa mediante botón atrás e invaders.
+  El toque que abrió PLAY no debe activar SKIP accidentalmente.
+- Pérdida de red/SKIP: se sigue jugando local. No debe anunciar publicación exitosa.
+- Cortar red al guardar, reconectar y RETRY GLOBAL UPLOAD sin salir de Game Over:
+  mismo recibo, nunca dos resultados. Recargar/cerrar no recupera envíos pendientes.
+- Agregar `score`/`level`/`seed` al POST, cambiar acciones, enviar partida sin terminar,
+  adelantar ticks o usar el ID de otro invitado: rechazar, sin insertar puntaje.
+- Con publishable key, con y sin sesión: RPC `start_ranked_run`, `inspect_ranked_run`,
+  `finalize_verified_run`, `submit_ranked_run`, `get_leaderboard`, limpieza y tablas
+  privadas deben denegar acceso. La lectura válida es la función `leaderboard`.
+- Puntos de admin y límites de replay: indicar LOCAL ONLY; no publicar esa partida.
+- Confirmar esquema `private` no expuesto, grants efectivos, cuotas tras varios
+  intentos inválidos, Cron y recuperación de backup.
+- Medir latencia/CPU en Supabase real con partidas largas antes de un lanzamiento
+  grande. El check Deno es de tipos; no certifica el presupuesto CPU del hosting.
 
-La publicación pendiente no se recupera tras recargar/cerrar Game Over: el
-resultado queda local si pudo guardarse, pero no se encola para otro día. El
-reintento explícito evita subir récords locales alterables o resultados antiguos.
+## Protocolo y datos
 
-## Modelo y límites iniciales
+`supabase/functions/_shared/game/` es la fuente única de simulación, datos y PRNG.
+La versión `sabo-replay-v1` fija ticks de **20ms**, gravedad con resto acumulado
+(incluidos intervalos menores a 20ms), orden de efectos y enfriamientos de acciones.
+No es una réplica de las imprecisiones del antiguo bucle dependiente de frames.
+Cambiar gameplay requiere **nueva versión** y conservar un verificador compatible
+para partidas abiertas, o rechazarlas explícitamente; nunca reinterpretarlas.
 
-- `private.ranked_scores`: **20 filas por modalidad**, hasta 40 en total.
-  Orden: puntuación descendente, fecha de recepción ascendente y UUID para desempatar.
-  Son resultados, no «un mejor récord por persona»: un invitado puede ocupar varios puestos.
-- `private.ranked_runs`: partidas con 24 horas para primer envío, recibos 7 días.
-  Un reintento idéntico conserva el recibo; cambiar nombre, score, nivel o modalidad
-  después de consumir la partida es rechazado. Insertar/recortar está serializado
-  por modalidad, incluso entre instancias simultáneas del backend.
-- Invitados: eliminados tras 30 días sin inicio/envío de partida; no borra récords.
-- Límites compartidos en PostgreSQL: **10 inicios / 10 minutos / usuario**,
-  **120 inicios / día / usuario**, **60 inicios / 10 minutos / bucket IP**,
-  **10.000 inicios / día globales** y **30 envíos / 10 minutos / usuario**.
-  Ventanas fijas: puede haber ráfagas al cambiar de ventana. Ajustarlos requiere
-  una migración; no editar una migración ya aplicada.
-- Lecturas: RPC limitado a 20 filas, sin IDs de usuarios, cacheado 60 segundos por
-  modalidad en cada cliente. El botón REFRESH respeta la caché para no generar spam.
-- El ranking local conserva la clave antigua y los registros válidos existentes,
-  ampliando el límite a 20 por modalidad. No puede recuperar resultados que el
-  viejo límite mixto ya había descartado. No se migra nada local al servidor.
+- Replay: máximo **90.000 ticks (30 minutos activos)**, **12.000 acciones**,
+  **4 grupos de acciones/tick**, **192KiB** por petición. Por encima se continúa
+  localmente. Pausa no avanza simulación, proyectiles ni ticks.
+- Tiempo del servidor: ticks × 20ms ≤ tiempo desde inicio + **2s** de tolerancia.
+  No impide planificar rápido y esperar antes de subir. El reloj cliente no manda.
+- Partida: 24h para el primer envío; recibos/semilla/hash/métricas retenidos 7 días
+  desde aceptación. Reintentos idénticos devuelven el mismo recibo aun vencida;
+  cambiar alias o replay después del primer éxito se rechaza. No se almacena el
+  replay completo: el hash permite vincular reintentos, no reconstruir evidencia.
+- `private.ranked_verified_scores`: **20 por modalidad**, hasta 40 filas. Orden
+  score descendente, recepción ascendente, UUID. Contiene versión/hash/ticks, no
+  ID de usuario público. Puede haber varios resultados de una misma persona.
+- `private.ranked_scores`: archivo privado de resultados anteriores **no verificados**.
+- Invitados inactivos: limpieza a 30 días; recibos a 7 días y cuotas a 2 días.
+  Los tops no tienen FK a invitados/recibos: limpiarlos no borra récords.
 
-## Precio y disponibilidad: no confundir cuota con cobro
+Cuotas persistentes (ventanas fijas; puede haber ráfagas al cambiar de ventana):
 
-Referencias consultadas al diseñar esta integración:
-[Pricing](https://supabase.com/pricing),
-[Cost control](https://supabase.com/docs/guides/platform/cost-control),
-[Invocations](https://supabase.com/docs/guides/platform/manage-your-usage/edge-function-invocations),
-[Database size](https://supabase.com/docs/guides/platform/manage-your-usage/database-size).
-Revisá siempre el panel: los precios y políticas pueden cambiar.
+| Operación | Límites |
+|---|---|
+| Intentos de inicio/envío, cada tipo | 300/min global y 20.000/día global |
+| Intentos de inicio | 20/10min/usuario y 120/10min/bucket IP |
+| Intentos de envío | 30/10min/usuario y 120/10min/bucket IP |
+| Inspección/replay de una partida propia | 8/10min/partida |
+| Inicios exitosos, además | 10/10min/usuario, 120/día/usuario, 60/10min/IP, 10.000/día global |
+| Lecturas públicas | 1.200/min global, 20.000/día global y 120/min/bucket IP |
 
-Free incluye 500 MB de PostgreSQL, 5 GB de transferencia saliente no cacheada,
-50.000 usuarios activos de Auth y 500.000 invocaciones mensuales de funciones.
-Varias cuotas se comparten a nivel organización. No presupuestes solamente las
-40 filas: también ocupan espacio Auth, índices, sesiones y datos internos.
+Los intentos autenticados se contabilizan en una transacción separada **antes**
+de leer/parsear/reproducir el body: un JSON inválido o replay rechazado no revierte
+el contador. Las cuotas se evalúan en orden: al denegar una global o por usuario,
+no se crean más contadores por IP. El límite diario de lectura también acota la
+creación de esos buckets aunque se roten IPs. Rechazos de
+autenticación/CORS/método/tipo de contenido no llegan a
+estas cuotas y necesitan protecciones de plataforma. El último `x-forwarded-for`
+se usa solo como señal suplementaria HMAC; verificar sanitización del gateway.
+Usuario, partida y límite global no confían en ese header. Cambiar cuotas requiere
+una migración nueva, no editar una ya aplicada.
 
-Dos llamadas de función por partida completa dan un máximo **aritmético** de
-250.000 partidas por mes, no una garantía de capacidad. Los abandonos consumen
-inicios, los errores/reintentos cuentan y las lecturas consumen transferencia.
-Los preflight `OPTIONS` no se facturan según la documentación actual.
-Este despliegue limita adicionalmente los inicios diarios para reducir abuso.
-CAPTCHA y rate limiting no evitan que alguien agote cuotas; las lecturas públicas
-también pueden abusarse y el propio backend consume invocaciones al rechazar.
+Las lecturas devuelven solo alias/score/nivel/modalidad/fecha, máximo 20 filas;
+el cliente deduplica y cachea 60s por modalidad. No hay datos de Auth públicos.
 
-En Free no hay cobro automático por exceder cuota: puede haber restricciones,
-solo lectura o pausa. El proyecto gratuito puede pausarse tras inactividad.
-No hay garantía de disponibilidad ni de protección frente a un ataque de cuota.
-No cambies a Pro asumiendo que Spend Cap cubre todos los cargos: solo existe en
-Pro y no cubre todos los recursos. La degradación a ranking local es intencional.
+## Monitorización, costo y recuperación
 
-Revisá Usage semanalmente al principio y más seguido si compartís el juego.
-Usá 50/75/90 % como umbrales de revisión manual; no se han creado alertas externas
-ni se promete que Supabase mande avisos personalizados en esos porcentajes.
+Revisar Usage y logs de Auth/Edge/Postgres al principio semanalmente y ante
+picos; controlar 429, 400, 503, fallos de Cron, latencia y nuevos invitados.
+No registrar tokens, secretos, IPs crudas ni cuerpos completos de solicitudes.
+No se instalaron alertas externas ni se promete bloqueo DDoS. Las cuotas SQL no
+impiden consumir invocaciones/red al rechazar ni el abuso directo de Auth.
 
-## Backups y recuperación
+No cambiar de plan ni contratar extras suponiendo que son necesarios. Las cuotas
+Free pueden agotarse y el proyecto puede quedar limitado/pausado. Verificar
+[precios](https://supabase.com/pricing) y
+[control de costos](https://supabase.com/docs/guides/platform/cost-control): Spend
+Cap de Pro no cubre todos los recursos. El fallback local es intencional.
 
-Supabase Free no sustituye un backup externo. El esquema está versionado aquí;
-los datos duraderos son las 40 filas de `private.ranked_scores`. Desde una sesión
-`psql` segura, conectada como administrador mediante el método indicado en
-**Connect** de tu proyecto, exportá fuera del repositorio:
-
-```sql
-\copy private.ranked_scores(id,mode,player_name,score,level,created_at) TO '/ruta/privada/ranking.csv' CSV HEADER
-```
-
-Para una prueba de recuperación, usá un **proyecto de prueba nuevo**, aplicá la
-migración y cargá el CSV en la tabla vacía:
+Para backup, desde `psql` administrativo seguro, exportar **fuera del repositorio**:
 
 ```sql
-\copy private.ranked_scores(id,mode,player_name,score,level,created_at) FROM '/ruta/privada/ranking.csv' CSV HEADER
-select count(*) from public.get_leaderboard('softcore');
-select count(*) from public.get_leaderboard('hardcore');
+\copy private.ranked_verified_scores(id,mode,player_name,score,level,rules_version,replay_digest,active_ticks,created_at) TO '/ruta/privada/verified.csv' CSV HEADER
+\copy private.ranked_scores(id,mode,player_name,score,level,created_at) TO '/ruta/privada/legacy.csv' CSV HEADER
 ```
 
-Eso restaura récords, no sesiones, recibos ni identidades de invitado. No hace
-falta preservar esos datos transitorios; las partidas abiertas se perderían.
-No borres ni reemplaces tablas de producción para probar el procedimiento.
+Probar recuperación en **otro proyecto nuevo**: aplicar ambas migraciones y
+usar `\copy ... FROM ... CSV HEADER` con las mismas columnas. Restaurar cada CSV
+solo en su tabla correspondiente; **no promover legacy a verified**. Se recuperan
+tops, no sesiones ni partidas abiertas. No probar borrando tablas de producción.
+Ante incidente: pausar publicación, preservar evidencia privada, revisar permisos,
+rotar credenciales comprometidas y desplegar corrección, sin reabrir el RPC viejo.
 
-## Seguridad: alcance honesto
+## Fuentes oficiales consultadas
 
-El backend valida identidad, forma, límites y consumo de la partida. **No prueba
-que el score sea auténtico**: el navegador calcula los puntos. La exclusión de
-atajos protege el cliente oficial, no impide uno modificado. No usar este ranking
-para premios o competición verificada sin validación de la simulación en servidor.
+- [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security)
+- [Funciones, search_path y EXECUTE](https://supabase.com/docs/guides/database/functions)
+- [Claves API y privilegios](https://supabase.com/docs/guides/api/api-keys)
+- [Auth anónima y abuso](https://supabase.com/docs/guides/auth/auth-anonymous)
+- [CAPTCHA / Turnstile](https://supabase.com/docs/guides/auth/auth-captcha)
+- [Límites de Auth](https://supabase.com/docs/guides/auth/rate-limits)
+- [Límites Edge](https://supabase.com/docs/guides/functions/limits): CPU activa
+  2s/petición; espera de red no cuenta como CPU. Confirmar política vigente.
+
+Estas fuentes respaldan la separación de privilegios y los límites de plataforma;
+la autenticidad del puntaje la aporta la simulación servidor, no RLS ni CAPTCHA.

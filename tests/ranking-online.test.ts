@@ -4,8 +4,12 @@ import { RankingService } from '../src/engine/services/RankingService.ts';
 import { RemoteRankingService } from '../src/engine/services/RemoteRankingService.ts';
 import type { RankedRun, RankingBackend, RankingMode } from '../src/engine/services/RemoteRankingService.ts';
 import { createHandler, validSubmission } from '../supabase/functions/_shared/http.ts';
+import { RULES_VERSION } from '../supabase/functions/_shared/game/protocol.ts';
+import { finishedReplay, SEED } from './fixtures/replays.ts';
 
-const run: RankedRun = { id: '00000000-0000-4000-8000-000000000001', mode: 'softcore', expiresAt: '2099-01-01T00:00:00Z' };
+const run: RankedRun = { id: '00000000-0000-4000-8000-000000000001', mode: 'softcore',
+  expiresAt: '2099-01-01T00:00:00Z', seed: SEED, rulesVersion: RULES_VERSION };
+const submission = { playerName: 'PLAYER', mode: 'softcore' as const, replay: finishedReplay('softcore').replay };
 const entry = { playerName: 'PLAYER', score: 100, level: 1, mode: 'softcore' as const, date: '2026-06-01' };
 function backend(): RankingBackend {
   return { hasSession: async () => true, signIn: async () => {}, start: async () => run,
@@ -49,7 +53,7 @@ test('disabled online service never asks for CAPTCHA or publishes local history'
   assert.equal(service.configured, false);
   assert.equal(await service.beginRun('softcore', () => { throw new Error('must not run'); }, new AbortController().signal), null);
   await assert.rejects(service.getRanking('softcore'));
-  await assert.rejects(service.submit(run, entry));
+  await assert.rejects(service.submit(run, submission));
 });
 
 test('a guest needs CAPTCHA once; returning guests do not', async () => {
@@ -105,27 +109,29 @@ test('failed reads can retry; a late pre-publication read cannot refill stale ca
   const stale = deferred<typeof entry[]>();
   api.read = () => stale.promise;
   const pending = service.getRanking('softcore');
-  await service.submit(run, entry);
+  await service.submit(run, submission);
   api.read = async () => [{ ...entry, score: 200 }];
   stale.resolve([entry]);
   await pending;
   assert.equal((await service.getRanking('softcore'))[0].score, 200);
 });
 
-test('HTTP validates payload boundaries, including safe integers and hardcore level', () => {
-  const body = { ...entry, runId: run.id };
+test('HTTP rejects ALL caller scores/levels/seeds/rules and validates the replay-only contract', () => {
+  const body = { ...submission, runId: run.id };
   assert.equal(validSubmission(body), true);
-  for (const patch of [{ score: -1 }, { score: 1.5 }, { score: Number.MAX_SAFE_INTEGER + 1 },
-    { playerName: ' ' }, { playerName: '01234567890' }, { playerName: '<script>' },
-    { runId: 'bad' }, { mode: 'hardcore', level: 10 }, { mode: 'softcore', level: 11 }]) {
+  for (const patch of [{ score: 100 }, { score: -1 }, { score: 1.5 }, { score: Number.MAX_SAFE_INTEGER + 1 },
+    { level: 1 }, { seed: SEED }, { rulesVersion: RULES_VERSION }, { playerName: ' ' },
+    { playerName: '01234567890' }, { playerName: '<script>' }, { runId: 'bad' }, { mode: 'other' },
+    { replay: { ticks: 1, events: [[1, 7]] } }, { replay: { ticks: 1, events: [[2, 4]] } }]) {
     assert.equal(validSubmission({ ...body, ...patch }), false, JSON.stringify(patch));
   }
-  assert.equal(validSubmission({ ...body, mode: 'hardcore', level: 11 }), true);
+  assert.equal(validSubmission({ ...body, mode: 'hardcore' }), true);
 });
 
 function handler(action: 'start' | 'submit' = 'start', rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> = async () => ({ data: run, error: null })) {
   return createHandler(action, { allowedOrigins: ['https://paablobs.github.io'], ipSalt: 's'.repeat(32),
-    userId: async token => token === 'valid' ? 'verified-user' : null, rpc });
+    userId: async token => token === 'valid' ? 'verified-user' : null,
+    rpc: async (name, args) => name === 'ranking_attempt' ? { data: { allowed: true }, error: null } : rpc(name, args) });
 }
 function request(body: unknown = { mode: 'softcore' }, overrides: Record<string, string> = {}): Request {
   return new Request('https://example.test/functions/v1/start-run', { method: 'POST',
