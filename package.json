@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "test:db": "bash scripts/test-db.sh",
-    "check:edge": "npx --yes deno@2.9.6 check --no-lock supabase/functions/start-run/index.ts supabase/functions/submit-score/index.ts",
+    "check:edge": "npx --yes deno@2.9.6 check --no-lock supabase/functions/start-run/index.ts supabase/functions/submit-score/index.ts supabase/functions/leaderboard/index.ts",
     "version:gen": "node scripts/version.mjs",
     "preview": "vite preview"
   },

@@ -1,168 +1,27 @@
 import * as ex from 'excalibur';
-import {
-  BOARD_X,
-  BOARD_Y,
-  BOARD_WIDTH,
-  BOARD_HEIGHT,
-  COLS,
-  ROWS,
-  CELL_SIZE,
-} from '../../types';
-import type { Grid } from '../../types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, BOARD_Y } from '../../types';
+import type { GameSimulation } from '../../../supabase/functions/_shared/game/simulation.ts';
 
-/**
- * Space invader ship that appears in hardcore mode and shoots bullets
- * that destroy existing blocks on the board.
- */
+/** Read-only renderer: ships, shots and block destruction belong to simulation. */
 export class SpaceInvaderActor extends ex.Actor {
-  private readonly grid: Grid;
-  private direction = 1;
-  private speed = 80;
-  private shotsFired = 0;
-  private readonly maxShots = 5;
-  private shotTimer = 0;
-  private readonly shotInterval = 1500;
-  private alive = true;
-  private readonly onBlockDestroyed?: (row: number, col: number) => void;
-  private readonly bullets = new Set<InvaderBullet>();
-
-  constructor(grid: Grid, onBlockDestroyed?: (row: number, col: number) => void) {
-    const startX = BOARD_X + 40 + Math.random() * (BOARD_WIDTH - 80);
-    super({
-      x: startX,
-      y: BOARD_Y - 30,
-      width: 36,
-      height: 24,
-      anchor: ex.Vector.Half,
-    });
-    this.grid = grid;
-    this.onBlockDestroyed = onBlockDestroyed;
+  private readonly state: () => GameSimulation | null;
+  constructor(state: () => GameSimulation | null) {
+    super({ x: 0, y: 0, width: CANVAS_WIDTH, height: CANVAS_HEIGHT, anchor: ex.Vector.Zero, z: 5 });
+    this.state = state;
   }
-
   onInitialize(): void {
-    const graphic = new ex.Canvas({
-      cache: false,
-      width: 36,
-      height: 24,
-      draw: (ctx) => {
+    this.graphics.use(new ex.Canvas({ cache: false, width: CANVAS_WIDTH, height: CANVAS_HEIGHT, draw: ctx => {
+      const state = this.state();
+      if (!state) return;
+      for (const ship of state.invaders) {
+        const x = ship.x - 18, y = BOARD_Y - 42;
         ctx.fillStyle = '#ff4d6d';
-        ctx.fillRect(4, 0, 28, 14);
-        ctx.fillRect(0, 10, 36, 4);
-        ctx.fillRect(6, 14, 6, 10);
-        ctx.fillRect(24, 14, 6, 10);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(14, 4, 8, 6);
-      },
-    });
-    this.graphics.use(graphic);
-  }
-
-  onPreUpdate(_engine: ex.Engine, delta: number): void {
-    if (!this.alive) return;
-
-    const dt = delta / 1000;
-    this.pos.x += this.direction * this.speed * dt;
-
-    if (this.pos.x <= BOARD_X + 18 || this.pos.x >= BOARD_X + BOARD_WIDTH - 18) {
-      this.direction *= -1;
-    }
-
-    this.shotTimer += delta;
-    if (this.shotTimer >= this.shotInterval) {
-      this.shotTimer = 0;
-      this.fireBullet();
-    }
-
-    if (this.shotsFired >= this.maxShots) {
-      this.alive = false;
-      // Keep already-fired bullets alive for the rest of this game. The scene
-      // still retains this actor and calls kill() during reset/deactivation,
-      // which cleans up any bullets that remain at that point.
-      super.kill();
-    }
-  }
-
-  kill(): void {
-    this.alive = false;
-    for (const bullet of this.bullets) bullet.kill();
-    this.bullets.clear();
-    super.kill();
-  }
-
-  private fireBullet(): void {
-    this.shotsFired++;
-    const bullet = new InvaderBullet(
-      this.pos.x,
-      this.pos.y + 28,
-      this.grid,
-      this.onBlockDestroyed,
-      (finishedBullet) => this.bullets.delete(finishedBullet)
-    );
-    this.bullets.add(bullet);
-    this.scene?.add(bullet);
-  }
-}
-
-class InvaderBullet extends ex.Actor {
-  private readonly grid: Grid;
-  private speed = 300;
-  private readonly onBlockDestroyed?: (row: number, col: number) => void;
-
-  private readonly onKilled: (bullet: InvaderBullet) => void;
-
-  constructor(
-    x: number,
-    y: number,
-    grid: Grid,
-    onBlockDestroyed: ((row: number, col: number) => void) | undefined,
-    onKilled: (bullet: InvaderBullet) => void
-  ) {
-    super({
-      x,
-      y,
-      width: 8,
-      height: 8,
-      anchor: ex.Vector.Half,
-    });
-    this.grid = grid;
-    this.onBlockDestroyed = onBlockDestroyed;
-    this.onKilled = onKilled;
-  }
-
-  kill(): void {
-    this.onKilled(this);
-    super.kill();
-  }
-
-  onInitialize(): void {
-    const graphic = new ex.Canvas({
-      cache: false,
-      width: 8,
-      height: 8,
-      draw: (ctx) => {
-        ctx.fillStyle = '#ffaa00';
-        ctx.fillRect(0, 0, 8, 8);
-      },
-    });
-    this.graphics.use(graphic);
-  }
-
-  onPreUpdate(_engine: ex.Engine, delta: number): void {
-    this.pos.y += this.speed * (delta / 1000);
-
-    const col = Math.floor((this.pos.x - BOARD_X) / CELL_SIZE);
-    const row = Math.floor((this.pos.y - BOARD_Y) / CELL_SIZE);
-
-    if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-      if (this.grid[row][col] !== null) {
-        this.onBlockDestroyed?.(row, col);
-        this.kill();
-        return;
+        ctx.fillRect(x + 4, y, 28, 14); ctx.fillRect(x, y + 10, 36, 4);
+        ctx.fillRect(x + 6, y + 14, 6, 10); ctx.fillRect(x + 24, y + 14, 6, 10);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 14, y + 4, 8, 6);
       }
-    }
-
-    if (this.pos.y > BOARD_Y + BOARD_HEIGHT + 20) {
-      this.kill();
-    }
+      ctx.fillStyle = '#ffaa00';
+      for (const bullet of state.bullets) ctx.fillRect(bullet.x - 4, bullet.y - 4, 8, 8);
+    } }));
   }
 }

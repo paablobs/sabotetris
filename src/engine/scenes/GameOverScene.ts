@@ -5,6 +5,7 @@ import { audio } from '../services/AudioService';
 import { isMobile } from '../services/MobileService';
 import { onlineRanking } from '../services/OnlineRanking';
 import type { RankedRun, Submission } from '../services/RemoteRankingService';
+import type { Replay } from '../../../supabase/functions/_shared/game/protocol.ts';
 
 /**
  * GameOverScene shows final score, level reached, and name input for ranking.
@@ -19,6 +20,7 @@ export class GameOverScene extends ex.Scene {
   private saved = false;
   private localSaved = false;
   private rankedRun: RankedRun | null = null;
+  private replay: Replay | null = null;
   private localReason = '';
   private publication: 'local' | 'sending' | 'published' | 'outside' | 'error' = 'local';
   private submission: Submission | null = null;
@@ -53,10 +55,11 @@ export class GameOverScene extends ex.Scene {
   onActivate(context: ex.SceneActivationContext<unknown>): void {
     const data = context.data as {
       score: number; level: number; mode?: 'softcore' | 'hardcore';
-      rankedRun?: RankedRun | null; localReason?: string;
+      rankedRun?: RankedRun | null; localReason?: string; replay?: Replay | null;
     } | undefined;
     this.generation++;
     this.rankedRun = data?.rankedRun ?? null;
+    this.replay = data?.replay ?? null;
     this.localReason = data?.localReason ?? 'Local game';
     this.publication = 'local';
     this.submission = null;
@@ -377,7 +380,8 @@ export class GameOverScene extends ex.Scene {
       mode: this.mode,
     });
     this.saved = true;
-    this.submission = { playerName: this.playerName.trim(), score: this.score, level: this.level, mode: this.mode };
+    // Never send local points or level as authoritative values.
+    this.submission = this.replay ? { playerName: this.playerName.trim(), replay: this.replay, mode: this.mode } : null;
     this.updateMobileControls();
     this.addClickHandler();
     void this.publishScore();

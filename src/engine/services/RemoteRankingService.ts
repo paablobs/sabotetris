@@ -1,8 +1,9 @@
 import type { ScoreEntry } from '../../types/index.ts';
 
-export type RankingMode = 'softcore' | 'hardcore';
-export interface RankedRun { id: string; mode: RankingMode; expiresAt: string }
-export interface Submission { playerName: string; score: number; level: number; mode: RankingMode }
+import type { GameMode, Replay, RunDescriptor } from '../../../supabase/functions/_shared/game/protocol.ts';
+export type RankingMode = GameMode;
+export type RankedRun = RunDescriptor;
+export interface Submission { playerName: string; replay: Replay; mode: RankingMode }
 export interface Receipt { accepted: true; inTop: boolean }
 export interface RankingBackend {
   hasSession(): Promise<boolean>;
