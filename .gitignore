@@ -20,6 +20,12 @@ supabase/.branches/
 # Generated at build/dev time
 src/generated/
 
+# Remotion demo video (video/)
+video/out/
+video/.tmp-video/
+video/public/*.mp4
+video/public/markers.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
