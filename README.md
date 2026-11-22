@@ -2,6 +2,12 @@
 
 > The pieces are fighting back.
 
+<a href="docs/sabotetris-demo.mp4">
+  <img src="docs/sabotetris-demo.gif" alt="Sabotetris demo: stacking and clearing lines while random chaos effects sabotage the falling piece, then levelling up" width="100%" />
+</a>
+
+<sub>Silent walkthrough. Click it for the full-quality <a href="docs/sabotetris-demo.mp4">MP4</a>.</sub>
+
 A chaotic twist on classic Tetris built with [Excalibur.js](https://excaliburjs.com). Stack blocks, clear lines, and survive the sabotage — then compete on global leaderboards powered by **PostgreSQL and Supabase**, or keep your scores locally.
 
 [Play in your browser](https://paablobs.github.io/sabotetris/).
@@ -105,7 +111,8 @@ supabase/
 └── schedule.sql      # Daily cleanup via pg_cron
 scripts/              # Version generation and isolated database test runner
 tests/                # Node.js tests and PostgreSQL integration assertions
-docs/                 # Supabase setup and operations guide
+docs/                 # Supabase setup and operations guide, demo video (MP4 + GIF)
+video/                # Remotion project that renders the demo video (standalone, own lockfile)
 ```
 
 ## Getting Started
